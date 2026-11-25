@@ -1,5 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import * as esbuild from "esbuild";
+import { gitDescribe, releaseInfo } from "./release-info.mjs";
 
 const watch = process.argv.includes("--watch");
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));
@@ -22,7 +23,11 @@ const options = {
   format: "iife",
   target: ["chrome120", "firefox128"],
   outfile: "dist/t3tk-core.js",
-  define: { __T3TK_VERSION__: JSON.stringify(version) },
+  define: {
+    __T3TK_VERSION__: JSON.stringify(version),
+    // Read once per build; `npm run watch` keeps the value it started with.
+    __T3TK_BUILD__: JSON.stringify(releaseInfo(gitDescribe(), version)),
+  },
   legalComments: "none",
   banner: { js: "/* T3CodeToolkit: unofficial add-on for T3 Code, not affiliated with T3 Tools, Inc. */" },
   plugins: [copy],

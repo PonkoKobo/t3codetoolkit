@@ -73,6 +73,10 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   tested in a live app yet. Newest first by default; sort by oldest, name, size or thread, filter
   by who sent it, or search by name or thread title. Click an image for **Open thread**, **Add to message**,
   **Annotate** or **Open full size**. It only reads; images whose files were deleted are hidden.
+- **Show more or fewer threads.** Right-click a project in the sidebar. **Show less** lists only its first
+  few threads (5 by default) and **Show more** lists them all again; on a collapsed project **Show more**
+  expands it. Set how many threads stay in the Toolkit menu, under this feature's switch. The open
+  thread always stays visible. The choice is kept per project in the current browser or desktop profile.
 - **Toolkit menu.** The **Toolkit** button (hammer icon) at the top right turns each feature on or off.
   A switch applies at once and is saved in the current browser or desktop profile. Its **Privacy**
   section has a telemetry switch for the desktop app started from the toolkit; it applies the next time
@@ -183,6 +187,8 @@ changes in the notes and bump the minor version. The browser manifest requires a
 
 1. Run `npm run release:version -- patch` (or `minor` or `major`) to update the package, lockfile and
    extension manifest together. The bundle takes its displayed version from `package.json` at build time.
+   A build of anything other than the clean, tagged release commit shows `+dev` after the version and,
+   under it, the commit and the release it follows, so only the published build shows the bare number.
    For the first release of an already-set version, skip the bump.
 2. Run the package command and tests, then commit the changes and push them to the default branch.
 3. Tag that commit with a short note about what changed for users.

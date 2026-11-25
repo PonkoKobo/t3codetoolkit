@@ -26,6 +26,13 @@ button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outl
 .t3tk-menu-row:hover { background: color-mix(in oklab, var(--foreground, #888) 8%, transparent); }
 .t3tk-menu-row input { margin: 2px 0 0; accent-color: var(--primary, #4f6bff); }
 .t3tk-menu-row:has(input:disabled) { cursor: default; opacity: 0.6; }
+.t3tk-menu-setting { cursor: default; align-items: center; padding-inline-start: 30px; }
+.t3tk-menu-setting input[type="number"] {
+  width: 56px; margin: 0 0 0 auto; padding: 2px 6px; border: 1px solid var(--border, rgb(128 128 128 / 25%));
+  border-radius: 6px; background: transparent; color: inherit; font: inherit;
+}
+.t3tk-menu-build { display: block; margin-top: 2px; font-weight: 400; }
+[data-t3tk-thread-hidden] { display: none !important; }
 .t3tk-menu-section { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
 .t3tk-menu-subheading { padding: 4px 8px 2px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-foreground, #999); }
 .t3tk-compact-row kbd,

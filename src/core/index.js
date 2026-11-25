@@ -14,6 +14,9 @@ import { CSS, ICONS, toast } from "./styles.js";
 import { askLauncher, hasLauncher } from "./launcher.js";
 
 const VERSION = __T3TK_VERSION__;
+// null for a clean build of the release tag; otherwise which GitHub release this build follows.
+const BUILD = __T3TK_BUILD__;
+const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
 const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
@@ -37,6 +40,13 @@ function writeDisabled(ids) {
   }
 }
 
+/** e.g. "Development build 7c96ed3, 3 commits after v0.1.1 with local changes." */
+function buildNote({ tag, ahead, commit, dirty, untagged }) {
+  const after = ahead ? `${ahead} commit${ahead === 1 ? "" : "s"} after v${tag}` : `v${tag}`;
+  const note = `Development build ${commit}, ${after}${dirty ? " with local changes" : ""}.`;
+  return untagged ? `${note} ${VERSION} isn't released on GitHub yet.` : note;
+}
+
 function boot() {
   if (window.__t3tk) return;
   const surface = window.desktopBridge ? "desktop" : "web";
@@ -48,7 +58,7 @@ function boot() {
   const health = Object.fromEntries(available.map((f) => [f.id, active.has(f) ? "idle" : "off"]));
 
   const style = document.createElement("style");
-  style.dataset.t3tk = VERSION;
+  style.dataset.t3tk = LABEL;
   style.textContent = CSS;
   document.head.append(style);
 
@@ -145,7 +155,13 @@ function boot() {
     panel.setAttribute("aria-label", "Toolkit features");
     const heading = document.createElement("div");
     heading.className = "t3tk-menu-heading";
-    heading.textContent = `T3CodeToolkit ${VERSION}`;
+    heading.textContent = `T3CodeToolkit ${LABEL}`;
+    if (BUILD) {
+      const build = document.createElement("small");
+      build.className = "t3tk-menu-build";
+      build.textContent = buildNote(BUILD);
+      heading.append(build);
+    }
     const note = document.createElement("small");
     note.textContent = "Unofficial add-on. Switches apply now and are saved in this client.";
     heading.append(note);
@@ -170,9 +186,18 @@ function boot() {
         setEnabled(feature.id, input.checked);
         input.checked = active.has(feature);
         refresh();
+        if (feature.settings) {
+          // Reopen so the feature's settings appear or go with its switch.
+          const button = menu.button;
+          closeMenu();
+          openMenu(button);
+          menu?.panel.querySelector(`[data-t3tk-feature="${feature.id}"]`)?.focus();
+        }
       });
+      input.dataset.t3tkFeature = feature.id;
       row.append(input, text);
       panel.append(row);
+      if (feature.settings && active.has(feature)) panel.append(feature.settings());
     }
     panel.append(telemetrySection());
     document.body.append(panel);
@@ -209,7 +234,7 @@ function boot() {
       button.type = "button";
       button.className = "t3tk-loaded";
       button.dataset.t3tkLoaded = "";
-      button.title = `T3CodeToolkit ${VERSION}: turn features on or off`;
+      button.title = `T3CodeToolkit ${LABEL}: turn features on or off`;
       button.setAttribute("aria-haspopup", "dialog");
       button.setAttribute("aria-expanded", "false");
       button.innerHTML = `${ICONS.hammer}<span>Toolkit</span>`;
@@ -240,11 +265,19 @@ function boot() {
   }
 
   const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state"] });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state", "aria-current", "aria-expanded"] });
+  for (const feature of available) {
+    try {
+      feature.init?.({ resync: schedule });
+    } catch (error) {
+      console.warn(`[t3tk] ${feature.id} failed to start`, error);
+    }
+  }
   schedule();
 
   window.__t3tk = {
     version: VERSION,
+    build: BUILD,
     surface,
     get features() { return available.map((f) => ({ id: f.id, title: f.title })); },
     enabled: () => available.filter((f) => active.has(f)).map((f) => f.id),
@@ -258,6 +291,7 @@ function boot() {
       closeAllAnnotators();
       for (const feature of active) feature.stop?.();
       document.querySelectorAll("[data-t3tk-loaded],[data-t3tk-compact],[data-t3tk-annotate],[data-t3tk-carousel],style[data-t3tk]").forEach((el) => el.remove());
+      document.querySelectorAll("[data-t3tk-thread-hidden]").forEach((el) => el.removeAttribute("data-t3tk-thread-hidden"));
       delete window.__t3tk;
     },
   };
@@ -277,7 +311,7 @@ function boot() {
       schedule();
     }).catch(() => {});
   }
-  console.info(`[t3tk] T3CodeToolkit ${VERSION} (unofficial add-on) active on ${surface}`);
+  console.info(`[t3tk] T3CodeToolkit ${LABEL}${BUILD ? ` (${buildNote(BUILD)})` : ""} (unofficial add-on) active on ${surface}`);
 }
 
 // Only run inside a T3 Code client; the content script and desktop injector may see other pages.
