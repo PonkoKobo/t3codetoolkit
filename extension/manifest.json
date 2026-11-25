@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "T3CodeToolkit (unofficial)",
+  "short_name": "T3CodeToolkit",
+  "version": "0.1.0",
+  "description": "Unofficial add-on for T3 Code: compact button, image annotation and more. Not affiliated with or endorsed by T3 Tools, Inc.",
+  "icons": { "128": "icon-128.png" },
+  "permissions": ["scripting", "storage"],
+  "host_permissions": ["https://app.t3.codes/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://app.t3.codes/*"],
+      "js": ["core.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "action": {
+    "default_title": "T3CodeToolkit: add a T3 Code address",
+    "default_icon": { "128": "icon-128.png" }
+  },
+  "browser_specific_settings": {
+    "gecko": { "id": "t3codetoolkit@unofficial.addon", "strict_min_version": "128.0", "data_collection_permissions": { "required": ["none"] } }
+  }
+}

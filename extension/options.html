@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T3CodeToolkit options</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1b1b1f; --muted:#666; --bg:#fff; --line:#ddd; --accent:#0f766e; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#eee; --muted:#999; --bg:#18181b; --line:#333; } }
+  body { font: 14px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 640px; margin: 32px auto; padding: 0 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: var(--muted); }
+  form { display: flex; gap: 8px; margin: 16px 0; }
+  input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+  button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  code { font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>T3CodeToolkit</h1>
+  <p class="muted">Unofficial add-on for T3 Code. Not affiliated with or endorsed by T3 Tools, Inc.</p>
+  <p>Runs on <code>https://app.t3.codes</code> automatically. Add any other address where you open T3 Code in this browser, such as a local <code>t3</code> server or a Tailscale host.</p>
+  <form id="add">
+    <input id="origin" placeholder="http://localhost:3773" autocomplete="off" required>
+    <button class="primary" type="submit">Add</button>
+  </form>
+  <p id="status" class="muted" role="status"></p>
+  <ul id="list"></ul>
+  <script src="options.js"></script>
+</body>
+</html>

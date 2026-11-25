@@ -1,0 +1,19 @@
+{
+  "name": "t3codetoolkit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unofficial add-on for T3 Code. Not affiliated with or endorsed by T3 Tools, Inc.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "package": "node scripts/build.mjs && node scripts/package.mjs",
+    "desktop": "node desktop/launch.mjs",
+    "install-desktop": "node desktop/install.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2"
+  }
+}
