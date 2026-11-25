@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_LIMIT, MAX_LIMIT, clampLimit, hiddenRows, menuChoice, parseCompact } from "../src/core/threadLimit.js";
+import { toastModuleUrl } from "../src/core/features/projectThreadMenu.js";
 
 const top = (current = false) => ({ top: true, current });
 const nested = (current = false) => ({ top: false, current });
@@ -51,4 +52,27 @@ test("the context menu offers one Show more / Show less entry that changes somet
   // Fits either way: Show less collapses like the header.
   assert.deepEqual(at({ threads: 5 }), { label: "Show less", action: "collapse" });
   assert.deepEqual(at({ compact: true, threads: 2 }), { label: "Show less", action: "collapse" });
+});
+
+function renderer(page, preloads, resources) {
+  return {
+    location: new URL(page),
+    document: { querySelectorAll: () => preloads.map((href) => ({ href })) },
+    performance: { getEntriesByType: () => resources.map((name) => ({ name })) },
+  };
+}
+
+test("the desktop renderer discovers the preloaded toast module without resource timing", () => {
+  const toast = "t3code://app/assets/toast-abc123.js";
+  assert.equal(toastModuleUrl(renderer("t3code://app/#/draft/example", [
+    "https://app/assets/toast-other.js",
+    "t3code://other/assets/toast-other.js",
+    "t3code://app/assets/toastHelpers-abc123.js",
+    toast,
+  ], [])), toast);
+});
+
+test("the web renderer still finds the toast module through resource timing", () => {
+  const toast = "https://example.test/assets/toast-abc123.js";
+  assert.equal(toastModuleUrl(renderer("https://example.test/", [], [toast])), toast);
 });

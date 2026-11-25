@@ -154,6 +154,20 @@ function install(menu) {
   };
 }
 
+export function toastModuleUrl({ document, location, performance } = window) {
+  // Chromium omits t3code:// module loads from Resource Timing. Vite's module
+  // preload links expose the actual hashed URL in the desktop renderer.
+  const candidates = [
+    ...Array.from(document.querySelectorAll('link[rel="modulepreload"][href]'), (link) => link.href),
+    ...performance.getEntriesByType("resource").map(({ name }) => name),
+  ];
+  return candidates.find((url) => {
+    const asset = new URL(url, location.href);
+    return asset.protocol === location.protocol && asset.host === location.host &&
+      /^\/assets\/toast-[\w-]+\.js$/.test(asset.pathname);
+  });
+}
+
 // T3 Code 0.1.12's loaded toast chunk exports the shared UI API as S. The
 // renderer routes both web and Electron context menus through this object.
 async function projectContextMenu(url) {
@@ -204,11 +218,7 @@ export const projectThreadMenu = {
     applyLimits();
     if (restore) return "ok";
     if (load || !document.querySelector(FOLDER)) return "idle";
-    const url = performance.getEntriesByType("resource").find(({ name }) => {
-      const asset = new URL(name);
-      return asset.protocol === location.protocol && asset.host === location.host &&
-        /^\/assets\/toast-[\w-]+\.js$/.test(asset.pathname);
-    })?.name;
+    const url = toastModuleUrl();
     if (!url) return "idle";
 
     const request = projectContextMenu(url);
