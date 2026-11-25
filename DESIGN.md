@@ -43,8 +43,9 @@ src/core/         One IIFE bundle (esbuild → dist/t3tk-core.js), no framework
   pickerDriver.js composer handle and the shared lock for driving the picker unseen
   favoriteOrder.js   model identity and ordering helpers (unit-tested)
   galleryData.js  find images in thread transcript rows; filter and sort them (unit-tested)
+  projectColors.js  icon colour → a readable project-name colour (unit-tested)
   features/       compactButton.js, imageAnnotate.js, effortShortcuts.js, arrangeFavorites.js,
-                  imageGallery.js, modelSwitcher.js, projectSwitcher.js
+                  imageGallery.js, modelSwitcher.js, projectSwitcher.js, projectColors.js
   annotate/       the annotation editor overlay
 extension/        MV3 for Chrome and Firefox (≥128); content script in the MAIN world
 desktop/          launch.mjs (starts the installed app, injects over a DevTools pipe),

@@ -55,3 +55,40 @@ export function homeHref(loc, hashHistory) {
 
 /** The entry `step` places from `index` among `count`, wrapping around. */
 export const cycle = (index, step, count) => (count ? (((index + step) % count) + count) % count : -1);
+
+/**
+ * CSS `order` values that show the sidebar's pinned project folders in `pinnedOrder`.
+ *
+ * The sidebar is one flat flex list: a folder header row, then that folder's thread rows, then the next
+ * folder. Upstream puts pinned folders first but orders them by thread activity. Each pinned folder and
+ * its rows move together; rows before the pinned block are pinned above it, everything after keeps the
+ * default order 0, so rows React adds later land below the pinned block until the next pass.
+ *
+ * @param {{folder?: string|null, parent?: string|null}[]} rows  one entry per list child: `folder` is
+ *   the key on a folder header, `parent` the folder a thread row belongs to
+ * @param {string[]} pinnedOrder  pinned project keys in the wanted order
+ * @returns {(number|null)[]|null}  an order per row (null = leave unset), or null when nothing needs to move
+ */
+export function sidebarFolderOrders(rows, pinnedOrder) {
+  const wanted = new Map(pinnedOrder.map((key, i) => [key, i]));
+  const runs = []; // { key, start, end } of pinned folders in list order
+  let open = null;
+  rows.forEach((row, i) => {
+    if (row.folder) {
+      open = wanted.has(row.folder) ? { key: row.folder, start: i, end: i } : null;
+      if (open) runs.push(open);
+    } else if (open && row.parent === open.key) open.end = i;
+    else open = null;
+  });
+  if (runs.length < 2) return null;
+  // Upstream lists pinned folders together; anything else in between means a layout this can't handle.
+  for (let i = 1; i < runs.length; i++) if (runs[i].start !== runs[i - 1].end + 1) return null;
+  const sorted = [...runs].sort((a, b) => wanted.get(a.key) - wanted.get(b.key));
+  if (sorted.every((run, i) => run === runs[i])) return null;
+  const BEFORE = -(runs.length + 1);
+  const orders = rows.map((_, i) => (i < runs[0].start ? BEFORE : null));
+  sorted.forEach((run, position) => {
+    for (let i = run.start; i <= run.end; i++) orders[i] = position - runs.length;
+  });
+  return orders;
+}

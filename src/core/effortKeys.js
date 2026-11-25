@@ -2,18 +2,32 @@
 
 export const MAX_EFFORT_KEY = 6;
 
+export function effortChordHeld(event) {
+  return Boolean(event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey &&
+    !event.getModifierState?.("AltGraph"));
+}
+
 /**
  * Alt (Option on macOS) + 1..6 → 1..6, otherwise null. Matched on the physical key (event.code), so
  * it works on any keyboard layout and with Option's special characters on macOS. Shift+digit is not
  * used because it types punctuation, and Ctrl/Cmd+digit already switch threads in T3 Code.
  */
 export function effortLevelFromKey(event) {
-  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  if (!effortChordHeld(event)) return null;
   if (event.repeat || event.isComposing) return null;
   const match = /^(?:Digit|Numpad)([1-9])$/.exec(event.code ?? "");
   if (!match) return null;
   const level = Number(match[1]);
   return level <= MAX_EFFORT_KEY ? level : null;
+}
+
+/** Move one enabled row in effort order, stopping at either end. */
+export function stepEffortIndex(entries, index, direction) {
+  const start = index < 0 && direction < 0 ? entries.length : index;
+  for (let next = start + direction; next >= 0 && next < entries.length; next += direction) {
+    if (!entries[next].disabled) return next;
+  }
+  return index;
 }
 
 /** True when the key went to some other text field (a terminal, a search box), not the composer. */

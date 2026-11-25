@@ -73,14 +73,17 @@ jobs:
           install_notes=$(cat <<'EOF'
           ## Install
 
-          - **Desktop:** Download the desktop ZIP, extract it, and run `install.cmd` on Windows, `install.command` on macOS, or `./install.sh` on Linux. Then start **T3 Code + Toolkit**.
-          - **Browser:** Download and extract the extension ZIP. In Chrome or Edge, enable Developer mode and use **Load unpacked**. In Firefox, use **Load Temporary Add-on** to select `manifest.json`.
-          - **Desktop updates:** Quit T3 Code, run the new installer, and use the same shortcut.
+          - **Desktop** — Extract the desktop ZIP and run `install.cmd` on Windows, `install.command` on macOS, or `./install.sh` on Linux. Then start **T3 Code + Toolkit**.
+          - **Chrome and Edge** — Download the ZIP labeled for your browser and extract it. In `chrome://extensions` or `edge://extensions`, enable Developer mode and use **Load unpacked** to select the extracted folder.
+          - **Firefox** — Download the Firefox ZIP and select it with **Load Temporary Add-on** in `about:debugging#/runtime/this-firefox`. Repeat after each Firefox restart.
+          - **Desktop updates** — Quit T3 Code, run the new installer, and use the same shortcut.
           EOF
           )
           notes=$(printf "## What's new\n\n%s\n\n%s" "$summary" "$install_notes")
           gh release create "$GITHUB_REF_NAME" \
             "release/T3CodeToolkit-$version.zip#Desktop installer (Windows, macOS, Linux)" \
-            "release/T3CodeToolkit-extension-$version.zip#Browser extension (Chrome, Edge, Firefox)" \
+            "release/T3CodeToolkit-extension-chrome-$version.zip#Chrome extension" \
+            "release/T3CodeToolkit-extension-edge-$version.zip#Microsoft Edge extension" \
+            "release/T3CodeToolkit-extension-firefox-$version.zip#Firefox extension (temporary install)" \
             release/SHA256SUMS.txt \
             --draft --verify-tag --title "T3CodeToolkit $version" --notes "$notes" --generate-notes

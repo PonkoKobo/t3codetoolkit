@@ -1,7 +1,9 @@
 import { closeAllAnnotators, openAnnotator } from "../annotate/editor.js";
+import { isOtherTextField } from "../effortKeys.js";
 import { findPropsUp } from "../react.js";
 import { ICONS, toast } from "../styles.js";
 
+const SHORTCUT = "Shift+A";
 const isDialogProps = (p) => p.preview && Array.isArray(p.preview.images) && typeof p.onClose === "function";
 const isZoomableProps = (p) => typeof p.src === "string" && typeof p.name === "string" && "mimeType" in p;
 
@@ -22,12 +24,27 @@ function currentImage(bar) {
   return { src: props?.src ?? img.currentSrc ?? img.src, name: props?.name ?? img.alt ?? "image", dialog };
 }
 
+function onKeyDown(event) {
+  if (event.defaultPrevented || event.repeat || event.isComposing) return;
+  if (!event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.key.toLowerCase() !== "a") return;
+  if (isOtherTextField(event.target) || document.querySelector(".t3tk-overlay")) return;
+  const scope = event.target?.closest?.("[role='dialog']") ?? document;
+  const button = scope.querySelector("[data-t3tk-annotate]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  button.click();
+}
+
 export const imageAnnotate = {
   id: "image-annotate",
   title: "Annotate images in the image viewer",
   surfaces: ["web", "desktop"],
   sync() {
     const bars = captionBars();
+    // Registering the same listener on subsequent syncs is idempotent.
+    if (bars.length) window.addEventListener("keydown", onKeyDown, true);
+    else window.removeEventListener("keydown", onKeyDown, true);
     for (const bar of bars) {
       const hasImage = !!bar.closest("[role='dialog']")?.querySelector("img");
       let button = bar.querySelector("[data-t3tk-annotate]");
@@ -40,8 +57,9 @@ export const imageAnnotate = {
       button.type = "button";
       button.className = "t3tk-btn t3tk-media-btn";
       button.dataset.t3tkAnnotate = "";
-      button.title = "Draw and comment on this image, then add it to your message";
-      button.innerHTML = `${ICONS.annotate}<span>Annotate</span>`;
+      button.title = `Draw and comment on this image, then add it to your message (${SHORTCUT})`;
+      button.setAttribute("aria-keyshortcuts", SHORTCUT);
+      button.innerHTML = `${ICONS.annotate}<span>Annotate</span><kbd aria-hidden="true">${SHORTCUT}</kbd>`;
       button.addEventListener("click", () => {
         const image = currentImage(bar);
         if (!image?.src) return toast("Couldn't find the image to annotate.");
@@ -54,6 +72,7 @@ export const imageAnnotate = {
     return bars.length > 0 ? "ok" : "idle";
   },
   stop() {
+    window.removeEventListener("keydown", onKeyDown, true);
     closeAllAnnotators();
     document.querySelectorAll("[data-t3tk-annotate]").forEach((button) => button.remove());
   },

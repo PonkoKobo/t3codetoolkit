@@ -1,7 +1,4 @@
-// Builds the release downloads into release/:
-//   T3CodeToolkit-<version>.zip            desktop installer for Windows, macOS and Linux (built
-//                                          bundle included, so users need neither Node nor npm)
-//   T3CodeToolkit-extension-<version>.zip  the browser extension, for Chrome/Edge and Firefox
+// Builds the desktop installer, browser-specific extension ZIPs and checksums into release/.
 // Run `npm run build` first (`npm run package` does both).
 
 import { deflateRawSync, crc32 } from "node:zlib";
@@ -112,9 +109,19 @@ const desktop = [
 ].map((path) => ({ name: top + path, data: readFileSync(path) }));
 writeArchive(`T3CodeToolkit-${version}.zip`, desktop);
 
-// Extension zips have manifest.json at the root, as both stores expect.
-const extension = ["background.js", "core.js", "icon-128.png", "manifest.json", "options.html", "options.js"]
+// Keep the shared manifest loadable from source and tailor only the packaged copies.
+const { background: { service_worker, scripts, ...sharedBackground }, browser_specific_settings, ...sharedManifest } = manifest;
+const chromium = { ...sharedManifest, background: { ...sharedBackground, service_worker } };
+const firefox = { ...sharedManifest, background: { ...sharedBackground, scripts }, browser_specific_settings };
+
+// Each extension ZIP has manifest.json at its root.
+const extension = ["background.js", "core.js", "icon-128.png", "options.html", "options.js"]
   .map((name) => ({ name, data: readFileSync(join("extension", name)) }));
 extension.push({ name: "LICENSE", data: readFileSync("LICENSE") });
-writeArchive(`T3CodeToolkit-extension-${version}.zip`, extension);
+for (const [browser, browserManifest] of Object.entries({ chrome: chromium, edge: chromium, firefox })) {
+  writeArchive(`T3CodeToolkit-extension-${browser}-${version}.zip`, [
+    ...extension,
+    { name: "manifest.json", data: Buffer.from(JSON.stringify(browserManifest, null, 2) + "\n") },
+  ]);
+}
 writeFileSync(join("release", "SHA256SUMS.txt"), checksums.join("\n") + "\n");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appRoute, cycle, homeHref, isChordKey, projectChordHeld, projectSlotFromKey, projectSlots } from "../src/core/projectKeys.js";
+import { appRoute, cycle, homeHref, isChordKey, projectChordHeld, projectSlotFromKey, projectSlots, sidebarFolderOrders } from "../src/core/projectKeys.js";
 
 const key = (code, mods = {}) => ({ code, ctrlKey: true, shiftKey: true, altKey: false, metaKey: false, ...mods });
 
@@ -75,4 +75,22 @@ test("the route is read from the path on the web and from the hash on desktop", 
   assert.equal(appRoute({ pathname: "/index.html", hash: "" }, true), "/");
   assert.equal(homeHref({ pathname: "/draft/abc", search: "" }, false), "/");
   assert.equal(homeHref({ pathname: "/index.html", search: "?a=1" }, true), "/index.html?a=1#/");
+});
+
+test("sidebar pinned folders follow the toolkit order, each with its thread rows", () => {
+  const rows = [
+    { parent: null }, // draft row above the folders
+    { folder: "b" }, { parent: "b" }, { parent: "b" },
+    { folder: "a" }, { parent: "a" },
+    { folder: "c" }, { parent: "c" }, // unpinned
+    { parent: null }, // a shelf below
+  ];
+  const orders = sidebarFolderOrders(rows, ["a", "b"]);
+  assert.deepEqual(orders, [-3, -1, -1, -1, -2, -2, null, null, null]);
+  // Already in order, or only one pinned folder: nothing to move.
+  assert.equal(sidebarFolderOrders(rows, ["b", "a"]), null);
+  assert.equal(sidebarFolderOrders(rows, ["a"]), null);
+  // A row of another folder between pinned folders stops the run; then the block isn't contiguous.
+  const split = [{ folder: "b" }, { parent: "x" }, { folder: "a" }];
+  assert.equal(sidebarFolderOrders(split, ["a", "b"]), null);
 });

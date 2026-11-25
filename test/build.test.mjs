@@ -29,23 +29,46 @@ test("the bundle stays inert outside T3 Code", () => {
   assert.equal(window.__t3tk, undefined);
 });
 
-test("the toolkit reports the package version when it boots", () => {
+function bootBundle(window = {}, savedFeatures = []) {
   const document = {
     readyState: "complete",
     querySelector: () => ({}),
     createElement: () => ({ dataset: {} }),
     head: { append() {} },
   };
-  const window = { document };
+  window.document = document;
   window.top = window;
   const context = vm.createContext({
     window, document, console: { info() {} },
-    localStorage: { getItem: () => null },
+    localStorage: { getItem: () => JSON.stringify(savedFeatures) },
     MutationObserver: class { observe() {} },
     setTimeout: () => 1,
   });
   vm.runInContext(read("dist/t3tk-core.js").toString("utf8"), context);
-  assert.equal(window.__t3tk.version, version);
+  return window.__t3tk;
+}
+
+test("the toolkit reports the package version when it boots", () => {
+  assert.equal(bootBundle().version, version);
+});
+
+test("repository expansion fix uses only the desktop app's exact version", async () => {
+  const id = "fix-thread-repository-overflow";
+  const desktop = (currentVersion) => ({ desktopBridge: { getUpdateState: async () => ({ currentVersion }) } });
+  const affected = bootBundle(desktop("0.1.12"));
+  const off = bootBundle(desktop("0.1.12"), [id]);
+  const unaffected = [
+    bootBundle(),
+    bootBundle(desktop("0.1.11")),
+    bootBundle(desktop("0.1.13")),
+    bootBundle(desktop("0.1.12-rc.1")),
+    bootBundle({ desktopBridge: { getUpdateState: async () => { throw new Error("Offline"); } } }),
+  ];
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(affected.enabled().includes(id));
+  assert.ok(off.features.some((feature) => feature.id === id));
+  assert.ok(!off.enabled().includes(id));
+  for (const toolkit of unaffected) assert.ok(!toolkit.features.some((feature) => feature.id === id));
 });
 
 test("extension manifest matches the package version and names itself unofficial", () => {
@@ -82,17 +105,19 @@ function unzip(buffer) {
 
 test("release zips are valid and complete and match their published checksums", () => {
   const desktopName = `T3CodeToolkit-${version}.zip`;
-  const extensionName = `T3CodeToolkit-extension-${version}.zip`;
+  const extensions = ["chrome", "edge", "firefox"].map((browser) => ({
+    browser, name: `T3CodeToolkit-extension-${browser}-${version}.zip`,
+  }));
   assert.ok(existsSync(join(root, "release", desktopName)), "run `npm run package` first");
-  const desktopZip = read(`release/${desktopName}`);
-  const extensionZip = read(`release/${extensionName}`);
-  const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+  const archives = new Map([desktopName, ...extensions.map(({ name }) => name)]
+    .map((name) => [name, read(`release/${name}`)]));
+  const checksums = [...archives].map(([name, data]) => `${createHash("sha256").update(data).digest("hex")}  ${name}\n`);
   assert.equal(
     read("release/SHA256SUMS.txt").toString("utf8"),
-    `${sha256(desktopZip)}  ${desktopName}\n${sha256(extensionZip)}  ${extensionName}\n`,
+    checksums.join(""),
   );
 
-  const desktop = unzip(desktopZip);
+  const desktop = unzip(archives.get(desktopName));
   const top = `T3CodeToolkit-${version}/`;
   assert.equal(JSON.parse(desktop.get(top + "package.json").data).version, version);
   assert.deepEqual(desktop.get(top + "dist/t3tk-core.js").data, read("dist/t3tk-core.js"));
@@ -109,10 +134,23 @@ test("release zips are valid and complete and match their published checksums", 
   assert.ok(desktop.get(top + "install.cmd").data.includes("\r\n"), "install.cmd keeps CRLF line endings");
   assert.ok(!desktop.get(top + "install.sh").data.includes("\r\n"), "install.sh keeps LF line endings");
 
-  const extension = unzip(extensionZip);
-  assert.ok(extension.has("manifest.json"), "manifest at the zip root");
-  assert.deepEqual(extension.get("core.js").data, read("extension/core.js"));
-  const manifest = JSON.parse(extension.get("manifest.json").data);
-  assert.equal(manifest.version, version);
-  assert.deepEqual(extension.get(manifest.action.default_icon["128"]).data, read("extension/icon-128.png"));
+  const sourceManifest = JSON.parse(read("extension/manifest.json"));
+  for (const { browser, name } of extensions) {
+    const extension = unzip(archives.get(name));
+    assert.ok(extension.has("manifest.json"), `${browser} manifest at the zip root`);
+    const manifest = JSON.parse(extension.get("manifest.json").data);
+    assert.equal(manifest.version, version);
+    assert.deepEqual(manifest.content_scripts, sourceManifest.content_scripts);
+    for (const name of ["background.js", "core.js", "icon-128.png", "options.html", "options.js"]) {
+      assert.deepEqual(extension.get(name)?.data, read(`extension/${name}`), `${name} in the ${browser} zip`);
+    }
+    assert.deepEqual(extension.get("LICENSE")?.data, read("LICENSE"));
+    if (browser === "firefox") {
+      assert.deepEqual(manifest.background, { scripts: ["background.js"] });
+      assert.deepEqual(manifest.browser_specific_settings, sourceManifest.browser_specific_settings);
+    } else {
+      assert.deepEqual(manifest.background, { service_worker: "background.js" });
+      assert.ok(!Object.hasOwn(manifest, "browser_specific_settings"));
+    }
+  }
 });

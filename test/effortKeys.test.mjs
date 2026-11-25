@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { effortLevelFromKey, effortRowLabel, isOtherTextField, pickEffortRow } from "../src/core/effortKeys.js";
+import { effortLevelFromKey, effortRowLabel, isOtherTextField, pickEffortRow, stepEffortIndex } from "../src/core/effortKeys.js";
 
 const key = (code, mods = {}) => ({ code, altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, ...mods });
 
@@ -22,6 +22,7 @@ test("only plain Alt counts; Shift, Ctrl and Cmd combinations stay with T3 Code"
   assert.equal(effortLevelFromKey(key("Digit1", { shiftKey: true })), null);
   assert.equal(effortLevelFromKey(key("Digit1", { ctrlKey: true })), null); // AltGr on Windows is Ctrl+Alt
   assert.equal(effortLevelFromKey(key("Digit1", { metaKey: true })), null);
+  assert.equal(effortLevelFromKey(key("Digit1", { getModifierState: (modifier) => modifier === "AltGraph" })), null);
 });
 
 test("held keys and IME composition are ignored", () => {
@@ -54,6 +55,18 @@ const row = (label, extra = {}) => ({
   querySelector: (sel) => (sel === "span" ? { textContent: ` ${label} ` } : null),
   dataset: { effortLevel: "true" },
   ...extra,
+});
+
+test("carousel steps skip disabled levels and stop at the lowest and highest available levels", () => {
+  const rows = [row("Low"), row("Medium", { disabled: true }), row("High")];
+  assert.equal(stepEffortIndex(rows, 0, 1), 2);
+  assert.equal(stepEffortIndex(rows, 2, -1), 0);
+  assert.equal(stepEffortIndex(rows, 0, -1), 0);
+  assert.equal(stepEffortIndex(rows, 2, 1), 2);
+  assert.equal(stepEffortIndex(rows, -1, 1), 0);
+  assert.equal(stepEffortIndex(rows, -1, -1), 2);
+  assert.equal(stepEffortIndex([], -1, 1), -1);
+  assert.equal(stepEffortIndex([rows[1]], 0, 1), 0);
 });
 
 test("picks the row for the level and reads its label from the first span", () => {

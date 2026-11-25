@@ -5,12 +5,17 @@ import { arrangeFavorites } from "./features/arrangeFavorites.js";
 import { modelSwitcher } from "./features/modelSwitcher.js";
 import { projectSwitcher } from "./features/projectSwitcher.js";
 import { imageGallery } from "./features/imageGallery.js";
+import { projectColors } from "./features/projectColors.js";
+import { threadRepositoryOverflow } from "./features/threadRepositoryOverflow.js";
+import { projectThreadMenu } from "./features/projectThreadMenu.js";
+import { sidebarProjectOrder } from "./features/sidebarProjectOrder.js";
 import { closeAllAnnotators } from "./annotate/editor.js";
 import { CSS, ICONS, toast } from "./styles.js";
 import { askLauncher, hasLauncher } from "./launcher.js";
 
 const VERSION = __T3TK_VERSION__;
-const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, arrangeFavorites, imageGallery];
+const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
+const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
 
 /** Features switched off in the toolkit menu, kept per browser or desktop profile. */
@@ -241,7 +246,7 @@ function boot() {
   window.__t3tk = {
     version: VERSION,
     surface,
-    features: available.map((f) => ({ id: f.id, title: f.title })),
+    get features() { return available.map((f) => ({ id: f.id, title: f.title })); },
     enabled: () => available.filter((f) => active.has(f)).map((f) => f.id),
     health: () => ({ ...health }),
     setEnabled,
@@ -256,6 +261,22 @@ function boot() {
       delete window.__t3tk;
     },
   };
+
+  // The desktop bridge reports the installed app version, even if the window
+  // is connected to a server on a different release. Unknown versions get no fixes.
+  if (surface === "desktop") {
+    Promise.resolve().then(() => window.desktopBridge.getUpdateState?.()).then((state) => {
+      if (stopped) return;
+      for (const fix of VERSION_FIXES) {
+        if (fix.hostVersion !== state?.currentVersion || !fix.surfaces.includes(surface)) continue;
+        available.push(fix);
+        const enabled = !forced.has(fix.id) && !disabled.has(fix.id);
+        health[fix.id] = enabled ? "idle" : "off";
+        if (enabled) active.add(fix);
+      }
+      schedule();
+    }).catch(() => {});
+  }
   console.info(`[t3tk] T3CodeToolkit ${VERSION} (unofficial add-on) active on ${surface}`);
 }
 

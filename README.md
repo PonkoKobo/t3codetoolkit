@@ -9,23 +9,24 @@ It targets stable T3 Code releases (tested on 0.1.12).
 
 ## Install
 
-Open [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases) and download the ZIP for
-your setup. Extract it before following the steps below.
+Download the ZIP for your setup from [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
 
 - **Desktop:** Choose `T3CodeToolkit-<version>.zip`. It includes the installer for Windows, macOS and
   Linux and uses your existing T3 Code installation. [Desktop setup](#desktop-app)
-- **Browser:** Choose `T3CodeToolkit-extension-<version>.zip`. Chrome and Edge load the extracted
-  folder. Firefox supports temporary loading and requires a signed add-on for permanent installation.
-  [Browser setup](#browser-extension-web-app-and-t3-connect)
+- **Chrome** — `T3CodeToolkit-extension-chrome-<version>.zip`
+- **Microsoft Edge** — `T3CodeToolkit-extension-edge-<version>.zip`
+- **Firefox** — `T3CodeToolkit-extension-firefox-<version>.zip`
+
+See [Browser setup](#browser-extension-web-app-and-t3-connect) for installation steps.
 
 ## Features
 
 It adds features to the T3 Code web app (Chrome and Firefox extension) and the desktop app (launcher):
 
-- **Compact button.** Under the Context row in the thread details panel. It runs the same `/compact`
-  as the slash command and is disabled whenever upstream would refuse.
-- **Image annotation.** Click an attached image to expand it, then click **Annotate** in the bar under
-  it. The image fills the editor. Arrow is the default tool; you can also use a pen, boxes or numbered pins (Ctrl+Alt+Left/Right switches tools). Ctrl+scroll, Ctrl+=/− or the zoom buttons zoom into the image (Ctrl+0 fits it again), and a zoomed image scrolls left, right, up and down. A note bubble
+- **Compact button.** In Thread Details under Context, click **Compact** or press **Shift+C** outside
+  text fields and the terminal. Both run the same `/compact` action when it is available.
+- **Image annotation.** Click an attached image to expand it, then press **Shift+A** or click
+  **Annotate** below the image. The image fills the editor. Arrow is the default tool; you can also use a pen, boxes or numbered pins (Ctrl+Alt+Left/Right switches tools). Ctrl+scroll, Ctrl+=/− or the zoom buttons zoom into the image (Ctrl+0 fits it again), and a zoomed image scrolls left, right, up and down. A note bubble
   opens beside each new mark so you can say what should change there (Enter or Esc closes it).
   Click a mark's number to reopen its note. Click the send button (or press Ctrl/Cmd+Enter) to add
   it to your message. The marked-up image is attached and the notes are added as text, so the agent
@@ -34,8 +35,10 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   including deleting a mark or clearing the drawing. Ctrl+Y or Ctrl/Cmd+Shift+Z redoes it. In a note,
   those keys edit the text. Esc in the drawing closes the editor.
 - **Effort shortcuts.** Alt+1 to Alt+6 (Option+1 to 6 on macOS) pick the reasoning effort of the
-  current model, from its lowest level up, the same as choosing it in the model picker. A short message
-  confirms the level, or says why there isn't one (for example, a model with only three levels). The picker
+  current model, from its lowest level up. Hold Alt/Option to see those levels in a carousel, or use
+  Alt/Option+scroll to open it immediately. Scroll up for higher effort and down for lower, or use
+  Left/Right. Release Alt/Option to apply the highlighted change. Press Esc to cancel. A short message
+  confirms the level or explains why it is unavailable. The model picker
   isn't shown while a shortcut changes the level, and the shortcuts also work with the picker open.
   Outside the picker, Ctrl/Cmd+digits still switch threads. While a composer is open, Alt/Option+digits
   take precedence over typing their usual characters (such as ¡ ™ £ on a Mac keyboard).
@@ -49,7 +52,8 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
 - **Project switcher.** Ctrl+Shift+1 to Ctrl+Shift+9 open a new thread in that pinned project. Pin
   projects with the pin button in the new-thread project picker; the first pinned project is 1, and later
   pins are added after it. The toolkit keeps that numbering in the current browser or desktop profile, so it
-  doesn't move when the app lists the current project first. Hold Ctrl+Shift for a moment to see the projects
+  doesn't move when the app lists the current project first. In the project picker, pinned projects are
+  listed first with their number (1–9); drag a number's grip (⠿) to change the order. Hold Ctrl+Shift for a moment to see the projects
   in a strip, pinned ones numbered first: press 1–9, or use the arrow keys (or Tab) or Ctrl+Shift+scroll and
   let go. Letting go without moving changes nothing; Esc cancels. When the message box has text, the arrow
   keys keep selecting words, so use the wheel or a digit there. Any other Ctrl+Shift shortcut closes the
@@ -74,18 +78,27 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   section has a telemetry switch for the desktop app started from the toolkit; it applies the next time
   T3 Code starts. On the web, telemetry is set by the server (see [Telemetry](#telemetry)).
 - **Telemetry off** where it can be: see [Telemetry](#telemetry).
+- **Thread Details repository expansion (desktop 0.1.12).** **Show more** keeps the extra
+  repositories in the scrollable card. The fix is on by default for this exact T3 Code version
+  and has its own switch in the Toolkit menu. [T3 Code issue #42907](https://github.com/pingdotgg/t3code/issues/42907)
+- **Organize repositories (desktop 0.1.12).** In Thread Details, pin rows to the top, move them
+  up or down, or hide them from the list. Filter by name to **Hide matches**, or open the organizer
+  to show hidden rows again. The layout is shared by threads in the same project folder and saved
+  in the current desktop profile.
 
 ## Browser extension (web app and T3 Connect)
 
-**Chrome / Edge:** open `chrome://extensions` or `edge://extensions`, turn on Developer mode, click
-**Load unpacked** and pick the extracted folder containing `manifest.json` (`extension` if building from source).
+**Chrome / Edge** — Extract the ZIP for your browser. Open `chrome://extensions` or `edge://extensions`,
+turn on Developer mode, click **Load unpacked** and pick the folder containing `manifest.json`
+(`extension` if building from source).
 
-**Firefox (128+):** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick
-`manifest.json` in the extracted folder. Then in `about:addons` → T3CodeToolkit → Permissions, allow access
-to `app.t3.codes` if prompted. Repeat the temporary load after each Firefox restart.
+**Firefox (128+)** — Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and
+select the Firefox ZIP directly, or pick `manifest.json` if you already extracted it. Then in
+`about:addons` → T3CodeToolkit → Permissions, allow access to `app.t3.codes` if prompted. Repeat the
+temporary load after each Firefox restart. Permanent installation requires a signed Firefox add-on.
 
 For Chrome or Edge updates, replace the files in the same unpacked folder and click **Reload** on the
-extension card. Refresh any open T3 Code tabs. In Firefox, remove the temporary add-on and load the new manifest.
+extension card. Refresh any open T3 Code tabs. In Firefox, remove the temporary add-on and load the new ZIP.
 
 It runs on `https://app.t3.codes` by default, which is also where remote sessions (T3 Connect) open. To use it
 with a local `t3` server or another host, click the toolbar icon and add that address; the browser asks for
@@ -160,7 +173,8 @@ npm run package
 npm test
 ```
 
-Use Node.js 22.2 or later. The package command builds both ZIPs and `SHA256SUMS.txt` in `release/`.
+Use Node.js 22.2 or later. The package command builds the desktop, Chrome, Edge and Firefox ZIPs and
+`SHA256SUMS.txt` in `release/`.
 CI runs packaging and tests on Windows, macOS and Linux and keeps the Linux downloads as a build artifact.
 
 The toolkit uses `MAJOR.MINOR.PATCH` versions independent of T3 Code's version. Use a patch bump for fixes,
@@ -174,7 +188,7 @@ changes in the notes and bump the minor version. The browser manifest requires a
 3. Tag that commit with a short note about what changed for users.
    For example, run `git tag -a v0.1.1 -m "Fix model switching when the picker is open."` and push the tag
    with `git push origin v0.1.1`. Use the version in `package.json` for both commands.
-4. When all three CI jobs pass, GitHub Actions creates a draft with both ZIPs, checksums, install steps
+4. When all three CI jobs pass, GitHub Actions creates a draft with all four ZIPs, checksums, install steps
    and the tag message's first line under **What's new**. Review the draft and publish it from
    [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
 

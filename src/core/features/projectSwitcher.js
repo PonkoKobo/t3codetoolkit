@@ -1,6 +1,7 @@
 import { appRoute, cycle, homeHref, isChordKey, projectChordHeld, projectSlotFromKey, projectSlots } from "../projectKeys.js";
 import { findPropsUp } from "../react.js";
 import { sleep, waitFor } from "../pickerDriver.js";
+import { placeFavorite } from "../favoriteOrder.js";
 import { toast } from "../styles.js";
 
 // Ctrl+Shift+1-9 opens a new thread in a pinned project; holding Ctrl+Shift shows the projects in a
@@ -46,10 +47,28 @@ const cachedProjects = () => {
   return Array.isArray(value) ? value.filter((p) => p && typeof p.key === "string" && typeof p.name === "string") : null;
 };
 
-function numbered(projects) {
-  const result = projectSlots(savedOrder(), projects);
-  writeJson(ORDER_KEY, result.order);
+/** Pinned projects numbered in the saved order (shared with the sidebar order); saves the order if it changed. */
+export function numbered(projects) {
+  const saved = savedOrder();
+  const result = projectSlots(saved, projects);
+  if (JSON.stringify(result.order) !== JSON.stringify(saved)) writeJson(ORDER_KEY, result.order);
   return result;
+}
+
+/** A picker row's project: { key, name, pinned }, or null for "Add project" and unknown rows. */
+function readRow(option) {
+  const item = findPropsUp(option, (p) => p.value && typeof p.value.value === "string" && typeof p.value.label === "string", 6)?.value;
+  if (!item || item.value === ADD_PROJECT) return null;
+  // The pin toggle inside the row carries { pinned, onToggle }; rows that can't be pinned have none.
+  let pinned = false;
+  for (const el of option.querySelectorAll("button, [role='button'], svg")) {
+    const props = findPropsUp(el, (p) => typeof p.pinned === "boolean" && typeof p.onToggle === "function", 6);
+    if (props) {
+      pinned = props.pinned;
+      break;
+    }
+  }
+  return { key: item.value, name: item.label, pinned };
 }
 
 let busy = false;
@@ -88,18 +107,8 @@ async function readProjects(trigger) {
     await waitFor(() => document.querySelector('[data-slot="combobox-popup"] [role="option"]'), 800);
     const projects = [];
     for (const option of document.querySelectorAll('[data-slot="combobox-popup"] [role="option"]')) {
-      const item = findPropsUp(option, (p) => p.value && typeof p.value.value === "string" && typeof p.value.label === "string", 6)?.value;
-      if (!item || item.value === ADD_PROJECT) continue;
-      // The pin toggle inside the row carries { pinned, onToggle }; rows that can't be pinned have none.
-      let pinned = false;
-      for (const el of option.querySelectorAll("button, [role='button'], svg")) {
-        const props = findPropsUp(el, (p) => typeof p.pinned === "boolean" && typeof p.onToggle === "function", 6);
-        if (props) {
-          pinned = props.pinned;
-          break;
-        }
-      }
-      projects.push({ key: item.value, name: item.label, pinned, current: option.getAttribute("aria-selected") === "true" });
+      const row = readRow(option);
+      if (row) projects.push({ ...row, current: option.getAttribute("aria-selected") === "true" });
     }
     if (!projects.length) {
       // Fall back to the picker's items without pin state (no row rendered yet).
@@ -283,6 +292,165 @@ function step(offset) {
   renderStrip();
 }
 
+// --- Numbers and drag order in the project picker ------------------------------------------------
+// While the new-thread project picker is open, pinned rows show their Ctrl+Shift number and a grip.
+// Dragging a grip changes that number order. Rows are only re-ordered visually (CSS `order`), since
+// the list's DOM belongs to the app; arrow keys in the picker still follow the app's own order.
+
+const PICKER_LIST = "data-t3tk-project-list";
+const SLOT_CLASS = "t3tk-project-slot";
+let pickerSignature = "";
+let dragging = false;
+let lastSlots = new Map(); // numbers from the last unfiltered list, kept while searching
+
+function projectPicker() {
+  if (document.documentElement.dataset[SILENT] !== undefined) return null;
+  for (const popup of document.querySelectorAll('[data-slot="combobox-popup"]')) {
+    const search = popup.querySelector('input[aria-label="Search projects"]');
+    const list = popup.querySelector('[data-slot="combobox-list"]');
+    if (search && list) return { search, list };
+  }
+  return null;
+}
+
+function clearPicker() {
+  for (const el of document.querySelectorAll(`.${SLOT_CLASS}`)) el.remove();
+  for (const el of document.querySelectorAll(`[${PICKER_LIST}]`)) el.removeAttribute(PICKER_LIST);
+  for (const el of document.querySelectorAll("[data-t3tk-slot]")) {
+    el.style.order = "";
+    el.style.transform = "";
+    el.removeAttribute("data-t3tk-slot");
+    el.removeAttribute("data-t3tk-dragging");
+  }
+}
+
+function decoratePicker() {
+  if (dragging) return;
+  const picker = projectPicker();
+  if (!picker) {
+    if (pickerSignature) clearPicker();
+    pickerSignature = "";
+    return;
+  }
+  const { list, search } = picker;
+  const rows = [];
+  for (const option of list.querySelectorAll('[role="option"]')) {
+    const row = readRow(option);
+    if (row) rows.push({ ...row, option });
+  }
+  const filtering = search.value.trim().length > 0;
+  // Numbering needs the whole list. While searching, keep the saved numbers without changing the order.
+  let slotByKey;
+  if (filtering) {
+    slotByKey = new Map(rows.filter((r) => r.pinned && lastSlots.has(r.key)).map((r) => [r.key, lastSlots.get(r.key)]));
+  } else {
+    slotByKey = new Map(numbered(rows).slots.map((s) => [s.key, s.slot]));
+    lastSlots = slotByKey;
+  }
+  const signature = JSON.stringify([filtering, rows.map((r) => [r.key, slotByKey.get(r.key) ?? 0])]);
+  const intact = rows.every((r) => !slotByKey.has(r.key) || r.option.querySelector(`:scope > .${SLOT_CLASS}`));
+  if (signature === pickerSignature && intact && list.hasAttribute(PICKER_LIST) === !filtering) return;
+  pickerSignature = signature;
+
+  list.toggleAttribute(PICKER_LIST, !filtering);
+  for (const { key, name, option } of rows) {
+    const slot = slotByKey.get(key);
+    option.querySelector(`:scope > .${SLOT_CLASS}`)?.remove();
+    if (!slot) {
+      option.style.order = "";
+      option.removeAttribute("data-t3tk-slot");
+      continue;
+    }
+    option.dataset.t3tkSlot = String(slot);
+    option.style.order = filtering ? "" : String(slot - 10000);
+    const badge = document.createElement("span");
+    badge.className = SLOT_CLASS;
+    badge.title = slot <= 9 ? `Ctrl+Shift+${slot}${filtering ? "" : " · drag to reorder"}` : filtering ? "" : "Drag to reorder";
+    const grip = document.createElement("span");
+    grip.className = "t3tk-project-grip";
+    grip.textContent = "⠿";
+    grip.setAttribute("aria-hidden", "true");
+    const number = document.createElement("kbd");
+    number.textContent = slot <= 9 ? String(slot) : "·";
+    badge.append(grip, number);
+    // Keep the row's own select behaviour away from the handle.
+    for (const type of ["mousedown", "mouseup", "click", "pointerup"]) {
+      badge.addEventListener(type, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    }
+    badge.addEventListener("pointerdown", (e) => {
+      if (filtering) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else startProjectDrag(e, option, key, name);
+    });
+    option.prepend(badge);
+  }
+}
+
+// Drag by the badge. Rows only slide (CSS transforms) while dragging; the order is saved once, on drop.
+function startProjectDrag(event, row, key, name) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.button !== 0) return;
+  const list = row.parentElement;
+  // Pinned rows in their shown (slot) order.
+  const rows = [...list.querySelectorAll(":scope > [data-t3tk-slot]")].sort((a, b) => Number(a.dataset.t3tkSlot) - Number(b.dataset.t3tkSlot));
+  const from = rows.indexOf(row);
+  if (from < 0 || rows.length < 2) return;
+  const keys = rows.map((r) => readRow(r)?.key);
+  if (keys.some((k) => !k)) return;
+  const boxes = rows.map((item) => item.getBoundingClientRect());
+  const startY = event.clientY;
+  let target = from;
+  dragging = true;
+  try {
+    event.currentTarget.setPointerCapture(event.pointerId);
+  } catch {
+    // Window listeners below still follow the pointer.
+  }
+  row.setAttribute("data-t3tk-dragging", "");
+  const move = (e) => {
+    if (e.pointerId !== event.pointerId) return;
+    e.preventDefault();
+    const dy = Math.max(boxes[0].top - boxes[from].top, Math.min(boxes[rows.length - 1].top - boxes[from].top, e.clientY - startY));
+    row.style.transform = `translateY(${dy}px)`;
+    const centre = boxes[from].top + boxes[from].height / 2 + dy;
+    target = rows.filter((other, index) => index !== from && boxes[index].top + boxes[index].height / 2 < centre).length;
+    rows.forEach((other, index) => {
+      if (other === row) return;
+      const shift = index > from && index <= target ? boxes[index - 1].top - boxes[index].top
+        : index < from && index >= target ? boxes[index + 1].top - boxes[index].top : 0;
+      other.style.transform = shift ? `translateY(${shift}px)` : "";
+    });
+  };
+  const end = (e) => {
+    if (e.pointerId !== event.pointerId) return;
+    window.removeEventListener("pointermove", move, true);
+    window.removeEventListener("pointerup", end, true);
+    window.removeEventListener("pointercancel", end, true);
+    row.removeAttribute("data-t3tk-dragging");
+    for (const item of rows) item.style.transform = "";
+    dragging = false;
+    if (e.type === "pointerup" && target !== from) {
+      const order = savedOrder();
+      const next = placeFavorite(order, new Set(keys), key, target);
+      if (next !== order) {
+        writeJson(ORDER_KEY, next);
+        const slot = next.filter((k) => keys.includes(k)).indexOf(key) + 1;
+        toast(slot <= 9 ? `${name} is now ${slot} (Ctrl+Shift+${slot})` : `${name} moved`, 1600);
+      }
+    }
+    pickerSignature = "";
+    decoratePicker();
+  };
+  window.addEventListener("pointermove", move, true);
+  window.addEventListener("pointerup", end, true);
+  window.addEventListener("pointercancel", end, true);
+}
+
 // --- Keys ----------------------------------------------------------------------------------------
 
 /** Places the shortcut stays out of: the toolkit's overlays, the terminal, and the Usage page (its own Ctrl+Shift+1-4). */
@@ -414,6 +582,7 @@ export const projectSwitcher = {
       document.addEventListener("visibilitychange", onVisibility);
       listening = true;
     }
+    decoratePicker();
     return document.querySelector(TRIGGER) || cachedProjects() ? "ok" : "idle";
   },
   stop() {
@@ -424,6 +593,9 @@ export const projectSwitcher = {
     document.removeEventListener("visibilitychange", onVisibility);
     listening = false;
     closeStrip();
+    clearPicker();
+    pickerSignature = "";
+    dragging = false;
     delete document.documentElement.dataset[SILENT];
   },
 };

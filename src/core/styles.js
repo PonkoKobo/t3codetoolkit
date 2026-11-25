@@ -28,6 +28,7 @@ button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outl
 .t3tk-menu-row:has(input:disabled) { cursor: default; opacity: 0.6; }
 .t3tk-menu-section { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
 .t3tk-menu-subheading { padding: 4px 8px 2px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-foreground, #999); }
+.t3tk-compact-row kbd,
 .t3tk-effort-key {
   flex: none; margin-inline-start: auto; padding: 0 4px; border: 1px solid var(--border, rgb(128 128 128 / 25%));
   border-radius: 4px; color: var(--muted-foreground, #999); font: 10px/15px var(--font-mono, monospace);
@@ -44,7 +45,7 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot="combobox-popup"]) * {
   opacity: 0 !important; transition: none !important; animation: none !important; pointer-events: none !important;
 }
-/* Favorite models (Ctrl+Alt) and projects (Ctrl+Shift), shown while the keys are held. */
+/* Effort, favorite models and favorite projects, shown while their shortcuts are held. */
 .t3tk-carousel {
   position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 2147483001;
   max-width: min(920px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px; padding: 10px;
@@ -68,6 +69,7 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 .t3tk-carousel-item[data-current] { background: color-mix(in oklab, var(--foreground, #888) 8%, transparent); }
 .t3tk-carousel-item[aria-selected="true"] { border-color: var(--primary, #4f6bff); background: color-mix(in oklab, var(--primary, #4f6bff) 22%, transparent); }
 .t3tk-carousel-item[data-disabled] { opacity: .45; }
+[data-t3tk-effort-carousel] .t3tk-carousel-item { width: auto; min-width: 96px; }
 .t3tk-compact-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin: 6px 0 0; padding: 0 2px;
@@ -86,6 +88,10 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 .t3tk-btn svg { width: 14px; height: 14px; flex: none; }
 .t3tk-hint { color: var(--muted-foreground, #999); font-size: 11px; }
 .t3tk-media-btn { color: rgb(255 255 255 / 85%); border-color: rgb(255 255 255 / 25%); height: 24px; }
+.t3tk-media-btn kbd {
+  padding: 0 4px; border: 1px solid rgb(255 255 255 / 25%); border-radius: 4px;
+  color: rgb(255 255 255 / 75%); font: 10px/14px var(--font-mono, monospace);
+}
 
 [data-t3tk-favorites-native] { display: none !important; }
 .t3tk-favorites { display: flex; flex-direction: column; min-height: 0; }
@@ -107,6 +113,27 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 .t3tk-favorites-list li { transition: transform 120ms ease; }
 .t3tk-favorites-list li[data-dragging] { position: relative; z-index: 1; opacity: 0.8; transition: none; }
 .t3tk-favorites-list li[data-dragging] .t3tk-favorites-grip { cursor: grabbing; }
+[data-t3tk-project-list] { display: flex; flex-direction: column; }
+[data-t3tk-project-list] > [data-t3tk-slot] { transition: transform 120ms ease; }
+[data-t3tk-project-list] > [data-t3tk-dragging] { position: relative; z-index: 1; opacity: 0.85; transition: none; }
+.t3tk-project-slot {
+  flex: none; display: inline-flex; align-items: center; gap: 2px; margin-inline-end: 6px;
+  color: var(--muted-foreground, #999); cursor: grab; touch-action: none; user-select: none;
+}
+[data-t3tk-project-list] > [data-t3tk-dragging] .t3tk-project-slot { cursor: grabbing; }
+.t3tk-project-slot kbd {
+  min-width: 16px; padding: 0 3px; text-align: center; border: 1px solid var(--border, rgb(128 128 128 / 25%));
+  border-radius: 4px; font: 10px/15px var(--font-mono, monospace);
+}
+.t3tk-project-grip { width: 9px; font-size: 11px; opacity: 0.45; }
+[data-t3tk-slot]:hover .t3tk-project-grip { opacity: 0.9; }
+:not([data-t3tk-project-list]) > [data-t3tk-slot] .t3tk-project-slot { cursor: default; }
+:not([data-t3tk-project-list]) > [data-t3tk-slot] .t3tk-project-grip { visibility: hidden; }
+[data-t3tk-folder-slot]::after {
+  content: attr(data-t3tk-folder-slot); margin-inline-start: 6px; padding: 0 3px; border-radius: 4px;
+  border: 1px solid var(--border, rgb(128 128 128 / 25%)); font: 10px/14px var(--font-mono, monospace);
+  color: var(--muted-foreground, #999);
+}
 .t3tk-favorites-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* Electron draws the native window buttons above all web content. Keep both toolbars below them. */
