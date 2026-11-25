@@ -5,7 +5,7 @@
 > **This project isn't affiliated with the official T3 Code.** It's an unofficial, community add-on for
 > [T3 Code](https://t3.codes), not made, endorsed or supported by T3 Tools, Inc.
 
-It targets stable T3 Code releases (tested on 0.1.11).
+It targets stable T3 Code releases (tested on 0.1.12).
 
 It adds features to the T3 Code web app (Chrome and Firefox extension) and the desktop app (launcher):
 
@@ -153,5 +153,4 @@ MIT, see [LICENSE](LICENSE). Copyright (c) 2026 PonkoKobo.
 
 This project isn't affiliated with, endorsed by or sponsored by T3 Tools, Inc. or the official T3 Code
 project. T3 Code and the T3 logo are trademarks of T3 Tools, Inc. The T3 Code name is used only to say
-what this add-on works with, following T3 Code's trademark guidelines; the T3 logo isn't used. If
-T3 Tools asks, the project will be renamed.
+what this add-on works with, following T3 Code's trademark guidelines; the T3 logo isn't used. 
