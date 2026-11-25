@@ -171,10 +171,12 @@ changes in the notes and bump the minor version. The browser manifest requires a
    extension manifest together. The bundle takes its displayed version from `package.json` at build time.
    For the first release of an already-set version, skip the bump.
 2. Run the package command and tests, then commit the changes and push them to the default branch.
-3. Tag that commit, for example with `git tag -a v0.1.0 -m "T3CodeToolkit 0.1.0"`, and push the tag with
-   `git push origin v0.1.0`. Use the version in `package.json` for both commands.
-4. When all three CI jobs pass, GitHub Actions creates a draft with both ZIPs, checksums and
-   generated notes. Review the draft and publish it from [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
+3. Tag that commit with a short note about what changed for users.
+   For example, run `git tag -a v0.1.1 -m "Fix model switching when the picker is open."` and push the tag
+   with `git push origin v0.1.1`. Use the version in `package.json` for both commands.
+4. When all three CI jobs pass, GitHub Actions creates a draft with both ZIPs, checksums, install steps
+   and the tag message's first line under **What's new**. Review the draft and publish it from
+   [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
 
 ## License and trademarks
 

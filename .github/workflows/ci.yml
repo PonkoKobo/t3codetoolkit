@@ -54,12 +54,23 @@ jobs:
           name: release
           path: release
       - name: Create draft with install downloads
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          notes=$(cat <<'EOF'
+          tag_object=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq '.object | select(.type == "tag") | .sha')
+          if [[ -z "$tag_object" ]]; then
+            echo "::error::Use an annotated tag with a short user-facing release note."
+            exit 1
+          fi
+          summary=$(gh api "repos/$GH_REPO/git/tags/$tag_object" --jq '.message | split("\n")[0]')
+          if [[ ! "$summary" =~ [^[:space:]] ]]; then
+            echo "::error::Start the tag message with a short user-facing release note."
+            exit 1
+          fi
+          install_notes=$(cat <<'EOF'
           ## Install
 
           - **Desktop:** Download the desktop ZIP, extract it, and run `install.cmd` on Windows, `install.command` on macOS, or `./install.sh` on Linux. Then start **T3 Code + Toolkit**.
@@ -67,6 +78,7 @@ jobs:
           - **Desktop updates:** Quit T3 Code, run the new installer, and use the same shortcut.
           EOF
           )
+          notes=$(printf "## What's new\n\n%s\n\n%s" "$summary" "$install_notes")
           gh release create "$GITHUB_REF_NAME" \
             "release/T3CodeToolkit-$version.zip#Desktop installer (Windows, macOS, Linux)" \
             "release/T3CodeToolkit-extension-$version.zip#Browser extension (Chrome, Edge, Firefox)" \
