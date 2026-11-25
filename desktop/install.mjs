@@ -165,8 +165,13 @@ function windowsShortcut(target) {
   return lnk;
 }
 
-const shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
-const xml = (s) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+// Function declarations (hoisted): macApp runs during top-level install code above this point.
+function shQuote(s) {
+  return `'${s.replaceAll("'", `'\\''`)}'`;
+}
+function xml(s) {
+  return s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
 
 function macApp(target) {
   const app = join(target, `${NAME}.app`);

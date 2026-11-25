@@ -2,13 +2,14 @@
 // Nothing touches the real install folder, Start Menu, ~/Applications or applications menu.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 
 const root = join(import.meta.dirname, "..");
-const tmp = mkdtempSync(join(tmpdir(), "t3tk-test-"));
+// Long-path form: Windows runners report tmpdir() as an 8.3 path (RUNNER~1), but shortcuts resolve to the long one.
+const tmp = realpathSync.native(mkdtempSync(join(tmpdir(), "t3tk-test-")));
 const dir = join(tmp, "install");
 const shortcuts = join(tmp, "shortcuts");
 const fakeApp = join(tmp, process.platform === "win32" ? "Fake T3 Code.exe" : "fake-t3code");
