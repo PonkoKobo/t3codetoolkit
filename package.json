@@ -9,6 +9,7 @@
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
     "package": "node scripts/build.mjs && node scripts/package.mjs",
+    "release:version": "node scripts/sync-version.mjs",
     "desktop": "node desktop/launch.mjs",
     "install-desktop": "node desktop/install.mjs",
     "test": "node --test"

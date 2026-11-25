@@ -7,6 +7,19 @@
 
 It targets stable T3 Code releases (tested on 0.1.12).
 
+## Install
+
+Open [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases) and download the ZIP for
+your setup. Extract it before following the steps below.
+
+- **Desktop:** Choose `T3CodeToolkit-<version>.zip`. It includes the installer for Windows, macOS and
+  Linux and uses your existing T3 Code installation. [Desktop setup](#desktop-app)
+- **Browser:** Choose `T3CodeToolkit-extension-<version>.zip`. Chrome and Edge load the extracted
+  folder. Firefox supports temporary loading and requires a signed add-on for permanent installation.
+  [Browser setup](#browser-extension-web-app-and-t3-connect)
+
+## Features
+
 It adds features to the T3 Code web app (Chrome and Firefox extension) and the desktop app (launcher):
 
 - **Compact button.** Under the Context row in the thread details panel. It runs the same `/compact`
@@ -62,28 +75,17 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   T3 Code starts. On the web, telemetry is set by the server (see [Telemetry](#telemetry)).
 - **Telemetry off** where it can be: see [Telemetry](#telemetry).
 
-## Build
-
-```
-npm install
-npm run build      # dist/t3tk-core.js, copied to extension/core.js
-npm run package    # release/T3CodeToolkit-<version>.zip (desktop) and -extension-<version>.zip
-npm test           # unit tests (Node's built-in runner; run after `npm run package`)
-```
-
-GitHub Actions (`.github/workflows/ci.yml`) runs the build, the package and the tests on Windows,
-macOS and Linux for every push and pull request, and keeps the release zips from the Linux run as a
-download. The tests install the desktop toolkit into a temporary folder with a stand-in app, so they
-check the installer on all three systems but don't start T3 Code itself.
-
 ## Browser extension (web app and T3 Connect)
 
-**Chrome / Edge:** open `chrome://extensions`, turn on Developer mode, click **Load unpacked** and pick the
-`extension` folder.
+**Chrome / Edge:** open `chrome://extensions` or `edge://extensions`, turn on Developer mode, click
+**Load unpacked** and pick the extracted folder containing `manifest.json` (`extension` if building from source).
 
 **Firefox (128+):** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick
-`extension/manifest.json`. Then in `about:addons` → T3CodeToolkit → Permissions, allow access to
-`app.t3.codes` (Firefox doesn't grant host permissions on install).
+`manifest.json` in the extracted folder. Then in `about:addons` → T3CodeToolkit → Permissions, allow access
+to `app.t3.codes` if prompted. Repeat the temporary load after each Firefox restart.
+
+For Chrome or Edge updates, replace the files in the same unpacked folder and click **Reload** on the
+extension card. Refresh any open T3 Code tabs. In Firefox, remove the temporary add-on and load the new manifest.
 
 It runs on `https://app.t3.codes` by default, which is also where remote sessions (T3 Connect) open. To use it
 with a local `t3` server or another host, click the toolbar icon and add that address; the browser asks for
@@ -91,8 +93,7 @@ permission for just that site.
 
 ## Desktop app
 
-Install once, then start T3 Code from the new **T3 Code + Toolkit** shortcut. Unzip
-`T3CodeToolkit-<version>.zip` (or use this folder after `npm run build`) and run:
+Install [T3 Code](https://t3.codes) first. Extract the desktop ZIP and run the installer for your OS.
 
 | OS | Install | Shortcut created |
 | --- | --- | --- |
@@ -102,8 +103,12 @@ Install once, then start T3 Code from the new **T3 Code + Toolkit** shortcut. Un
 
 The installer runs on T3 Code's own binary, so neither Node nor npm is needed. It copies the toolkit to
 `%LOCALAPPDATA%\T3CodeToolkit` (Windows), `~/Library/Application Support/T3CodeToolkit` (macOS) or
-`~/.local/share/t3codetoolkit` (Linux). Options: `--keep-telemetry`, `--app <path to the T3 Code
-executable or AppImage>` if it isn't found, `--no-shortcuts`, and `--uninstall` to remove everything again.
+`~/.local/share/t3codetoolkit` (Linux). The installer accepts `--keep-telemetry`, `--no-shortcuts` and
+`--uninstall`. If it can't find T3 Code, set `T3TK_APP` to the full path to its executable or AppImage
+before running the installer.
+
+After installing, open **T3 Code + Toolkit**. To update, quit T3 Code, extract the new desktop ZIP and
+run its installer again. The shortcut and your toolkit preferences carry over.
 
 The shortcut starts your installed T3 Code and injects the toolkit. Nothing in the T3 Code install is
 changed, so it keeps working after T3 Code updates. Good to know:
@@ -119,8 +124,8 @@ changed, so it keeps working after T3 Code updates. Good to know:
 - **Restarts.** When T3 Code restarts itself (some settings changes, installing an update), the new
   window is expected to run without the toolkit. Quit it and open the shortcut again.
 - **macOS:** permission prompts (microphone, folders) may name the toolkit launcher instead of T3 Code.
-- **Tested on Windows only so far.** The macOS and Linux installers haven't been run yet; please report
-  what happens.
+- **Compatibility:** CI checks installation on Windows, macOS and Linux with a stand-in app. Live T3 Code
+  use has been tested on Windows.
 
 Without installing: `npm run desktop -- [--app <path>] [--keep-telemetry]`.
 
@@ -145,7 +150,31 @@ reload.
 ## Contributing
 
 Contributions are welcome: open an issue for bugs (include `__t3tk.health()` output) or a pull request
-for fixes and features. Please run `npm test` before sending a PR. Forks are fine too, under the license.
+for fixes and features. Please build the packages and run the tests before sending a PR.
+
+## Build and release
+
+```sh
+npm ci
+npm run package
+npm test
+```
+
+Use Node.js 22.2 or later. The package command builds both ZIPs and `SHA256SUMS.txt` in `release/`.
+CI runs packaging and tests on Windows, macOS and Linux and keeps the Linux downloads as a build artifact.
+
+The toolkit uses `MAJOR.MINOR.PATCH` versions independent of T3 Code's version. Use a patch bump for fixes,
+a minor bump for new features, and a major bump for breaking changes after 1.0. During 0.x, document breaking
+changes in the notes and bump the minor version. The browser manifest requires a numeric version.
+
+1. Run `npm run release:version -- patch` (or `minor` or `major`) to update the package, lockfile and
+   extension manifest together. The bundle takes its displayed version from `package.json` at build time.
+   For the first release of an already-set version, skip the bump.
+2. Run the package command and tests, then commit the changes and push them to the default branch.
+3. Tag that commit, for example with `git tag -a v0.1.0 -m "T3CodeToolkit 0.1.0"`, and push the tag with
+   `git push origin v0.1.0`. Use the version in `package.json` for both commands.
+4. When all three CI jobs pass, GitHub Actions creates a draft with both ZIPs, checksums and
+   generated notes. Review the draft and publish it from [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
 
 ## License and trademarks
 

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 
 const root = join(import.meta.dirname, "..");
+const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 // Long-path form: Windows runners report tmpdir() as an 8.3 path (RUNNER~1), but shortcuts resolve to the long one.
 const tmp = realpathSync.native(mkdtempSync(join(tmpdir(), "t3tk-test-")));
 const dir = join(tmp, "install");
@@ -68,6 +69,7 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(readFileSync(join(dir, "runtime.txt"), "utf8"), fakeApp);
 
   const config = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+  assert.equal(config.version, version);
   assert.equal(config.app, fakeApp);
   assert.equal(config.keepTelemetry, false);
   assert.equal(config.shortcuts.length, 1);
@@ -105,6 +107,14 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(out.bundlePath, join(dir, "t3tk-core.js"));
   assert.equal(out.telemetry, "false");
   assert.deepEqual(out.telemetryState, { offNow: true, offNextStart: true, lockedBy: null });
+
+  // An update from an older install preserves its telemetry preference and shortcut.
+  writeFileSync(join(dir, "config.json"), JSON.stringify({ ...config, version: "0.0.1", keepTelemetry: true }));
+  run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--shortcuts", shortcuts]);
+  const upgraded = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+  assert.equal(upgraded.version, version);
+  assert.equal(upgraded.keepTelemetry, true);
+  assert.deepEqual(upgraded.shortcuts, [entry]);
 
   run("desktop/install.mjs", ["--uninstall", "--dir", dir]);
   assert.equal(existsSync(dir), false, "install folder removed");

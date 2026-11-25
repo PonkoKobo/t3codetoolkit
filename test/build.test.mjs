@@ -1,5 +1,6 @@
 // Checks the built bundle, the extension manifest and the release zips.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -26,6 +27,25 @@ test("the bundle stays inert outside T3 Code", () => {
   const context = vm.createContext({ window, document, location: window.location, console });
   vm.runInContext(read("dist/t3tk-core.js").toString("utf8"), context);
   assert.equal(window.__t3tk, undefined);
+});
+
+test("the toolkit reports the package version when it boots", () => {
+  const document = {
+    readyState: "complete",
+    querySelector: () => ({}),
+    createElement: () => ({ dataset: {} }),
+    head: { append() {} },
+  };
+  const window = { document };
+  window.top = window;
+  const context = vm.createContext({
+    window, document, console: { info() {} },
+    localStorage: { getItem: () => null },
+    MutationObserver: class { observe() {} },
+    setTimeout: () => 1,
+  });
+  vm.runInContext(read("dist/t3tk-core.js").toString("utf8"), context);
+  assert.equal(window.__t3tk.version, version);
 });
 
 test("extension manifest matches the package version and names itself unofficial", () => {
@@ -60,12 +80,22 @@ function unzip(buffer) {
   return entries;
 }
 
-test("release zips are valid and complete", (t) => {
-  const desktopZip = join(root, "release", `T3CodeToolkit-${version}.zip`);
-  if (!existsSync(desktopZip)) return t.skip("run `npm run package` first");
+test("release zips are valid and complete and match their published checksums", () => {
+  const desktopName = `T3CodeToolkit-${version}.zip`;
+  const extensionName = `T3CodeToolkit-extension-${version}.zip`;
+  assert.ok(existsSync(join(root, "release", desktopName)), "run `npm run package` first");
+  const desktopZip = read(`release/${desktopName}`);
+  const extensionZip = read(`release/${extensionName}`);
+  const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+  assert.equal(
+    read("release/SHA256SUMS.txt").toString("utf8"),
+    `${sha256(desktopZip)}  ${desktopName}\n${sha256(extensionZip)}  ${extensionName}\n`,
+  );
 
-  const desktop = unzip(readFileSync(desktopZip));
+  const desktop = unzip(desktopZip);
   const top = `T3CodeToolkit-${version}/`;
+  assert.equal(JSON.parse(desktop.get(top + "package.json").data).version, version);
+  assert.deepEqual(desktop.get(top + "dist/t3tk-core.js").data, read("dist/t3tk-core.js"));
   for (const name of [
     "install.cmd", "install.sh", "install.command", "dist/t3tk-core.js",
     "desktop/install.mjs", "desktop/launch.mjs", "desktop/splash.mjs", "desktop/start.sh", "desktop/start.ps1",
@@ -79,9 +109,10 @@ test("release zips are valid and complete", (t) => {
   assert.ok(desktop.get(top + "install.cmd").data.includes("\r\n"), "install.cmd keeps CRLF line endings");
   assert.ok(!desktop.get(top + "install.sh").data.includes("\r\n"), "install.sh keeps LF line endings");
 
-  const extension = unzip(readFileSync(join(root, "release", `T3CodeToolkit-extension-${version}.zip`)));
+  const extension = unzip(extensionZip);
   assert.ok(extension.has("manifest.json"), "manifest at the zip root");
-  assert.ok(extension.has("core.js"));
+  assert.deepEqual(extension.get("core.js").data, read("extension/core.js"));
   const manifest = JSON.parse(extension.get("manifest.json").data);
+  assert.equal(manifest.version, version);
   assert.deepEqual(extension.get(manifest.action.default_icon["128"]).data, read("extension/icon-128.png"));
 });

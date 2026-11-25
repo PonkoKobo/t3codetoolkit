@@ -5,12 +5,24 @@
 // Run `npm run build` first (`npm run package` does both).
 
 import { deflateRawSync, crc32 } from "node:zlib";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version) ||
+    version === "0.0.0" || version.split(".").some((part) => Number(part) > 65535)) {
+  throw new Error(`Invalid release version ${version}: use a browser-compatible MAJOR.MINOR.PATCH version.`);
+}
+if (lock.version !== version || lock.packages[""].version !== version) {
+  throw new Error(`package-lock.json does not match package version ${version}; run npm install --package-lock-only.`);
+}
 if (manifest.version !== version) throw new Error(`extension version ${manifest.version} != package version ${version}`);
+if (process.env.GITHUB_REF_TYPE === "tag" && process.env.GITHUB_REF_NAME !== `v${version}`) {
+  throw new Error(`Release tag ${process.env.GITHUB_REF_NAME} does not match package version v${version}.`);
+}
 if (!existsSync("dist/t3tk-core.js")) throw new Error("dist/t3tk-core.js is missing; run npm run build");
 
 const EXECUTABLE = /\.(sh|command)$/;
@@ -65,14 +77,15 @@ function zip(entries) {
   return Buffer.concat([...local, ...central, end]);
 }
 
-const files = (dir) =>
-  readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? files(path) : [path];
-  });
-const entry = (path, prefix = "") => ({ name: prefix + relative(".", path).replaceAll("\\", "/"), data: readFileSync(path) });
-
 mkdirSync("release", { recursive: true });
+
+const checksums = [];
+function writeArchive(name, entries) {
+  const archive = zip(entries);
+  writeFileSync(join("release", name), archive);
+  checksums.push(`${createHash("sha256").update(archive).digest("hex")}  ${name}`);
+  console.log(`release/${name} (${entries.length} files)`);
+}
 
 const top = `T3CodeToolkit-${version}/`;
 const desktop = [
@@ -88,14 +101,20 @@ const desktop = [
   "assets/icon.ico",
   "scripts/telemetry.cmd",
   "scripts/telemetry.sh",
-  ...files("desktop"),
-].map((p) => entry(p, top));
-writeFileSync(join("release", `T3CodeToolkit-${version}.zip`), zip(desktop));
+  "desktop/find-app.mjs",
+  "desktop/install.mjs",
+  "desktop/launch.mjs",
+  "desktop/splash.mjs",
+  "desktop/start.ps1",
+  "desktop/start.sh",
+  "desktop/windows-launcher.cs",
+  "desktop/windows-shell.ps1",
+].map((path) => ({ name: top + path, data: readFileSync(path) }));
+writeArchive(`T3CodeToolkit-${version}.zip`, desktop);
 
 // Extension zips have manifest.json at the root, as both stores expect.
-const extension = files("extension").map((p) => ({ name: relative("extension", p).replaceAll("\\", "/"), data: readFileSync(p) }));
+const extension = ["background.js", "core.js", "icon-128.png", "manifest.json", "options.html", "options.js"]
+  .map((name) => ({ name, data: readFileSync(join("extension", name)) }));
 extension.push({ name: "LICENSE", data: readFileSync("LICENSE") });
-writeFileSync(join("release", `T3CodeToolkit-extension-${version}.zip`), zip(extension));
-
-console.log(`release/T3CodeToolkit-${version}.zip (${desktop.length} files)`);
-console.log(`release/T3CodeToolkit-extension-${version}.zip (${extension.length} files)`);
+writeArchive(`T3CodeToolkit-extension-${version}.zip`, extension);
+writeFileSync(join("release", "SHA256SUMS.txt"), checksums.join("\n") + "\n");

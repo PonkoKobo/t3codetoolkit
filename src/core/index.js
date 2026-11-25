@@ -9,7 +9,7 @@ import { closeAllAnnotators } from "./annotate/editor.js";
 import { CSS, ICONS, toast } from "./styles.js";
 import { askLauncher, hasLauncher } from "./launcher.js";
 
-const VERSION = "0.1.0";
+const VERSION = __T3TK_VERSION__;
 const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, arrangeFavorites, imageGallery];
 const DISABLED_KEY = "t3tk.disabled-features";
 

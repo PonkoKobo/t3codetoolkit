@@ -111,7 +111,7 @@ if (!flag("--no-shortcuts")) {
 const config = {
   version,
   app: appPath,
-  keepTelemetry: flag("--keep-telemetry"),
+  keepTelemetry: flag("--keep-telemetry") || previous?.keepTelemetry === true,
   // Keep entries from an earlier install that this run didn't recreate, so uninstall finds them.
   shortcuts: [...new Set([...(previous?.shortcuts ?? []).filter((s) => existsSync(s)), ...shortcuts])],
   installedAt: new Date().toISOString(),

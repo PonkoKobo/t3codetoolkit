@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -32,5 +34,41 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release
-          path: release/*.zip
+          path: |
+            release/*.zip
+            release/SHA256SUMS.txt
           if-no-files-found: error
+          overwrite: true
+
+  release:
+    name: Draft GitHub release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release
+      - name: Create draft with install downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes=$(cat <<'EOF'
+          ## Install
+
+          - **Desktop:** Download the desktop ZIP, extract it, and run `install.cmd` on Windows, `install.command` on macOS, or `./install.sh` on Linux. Then start **T3 Code + Toolkit**.
+          - **Browser:** Download and extract the extension ZIP. In Chrome or Edge, enable Developer mode and use **Load unpacked**. In Firefox, use **Load Temporary Add-on** to select `manifest.json`.
+          - **Desktop updates:** Quit T3 Code, run the new installer, and use the same shortcut.
+          EOF
+          )
+          gh release create "$GITHUB_REF_NAME" \
+            "release/T3CodeToolkit-$version.zip#Desktop installer (Windows, macOS, Linux)" \
+            "release/T3CodeToolkit-extension-$version.zip#Browser extension (Chrome, Edge, Firefox)" \
+            release/SHA256SUMS.txt \
+            --draft --verify-tag --title "T3CodeToolkit $version" --notes "$notes" --generate-notes
