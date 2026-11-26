@@ -66,7 +66,9 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
 
 - **Compact button.** In Thread Details under Context, click **Compact** or press **Shift+C** outside
   text fields and the terminal. Both run the same `/compact` action when it is available.
-- **Image annotation.** Click an attached image to expand it, then press **Shift+A** or click
+- **Image annotation.** Enable **Open images directly in annotation mode** under **Toolkit → Chat &
+  images → Annotate images** to open the editor as soon as you click an attached image.
+  With that option off, click an attached image to expand it, then press **Shift+A** or click
   **Annotate** below the image. The image fills the editor. Arrow is the default tool; you can also use a pen, boxes or numbered pins (Ctrl+Alt+Left/Right switches tools). Ctrl+scroll, Ctrl+=/− or the zoom buttons zoom into the image (Ctrl+0 fits it again), and a zoomed image scrolls left, right, up and down. A note bubble
   opens beside each new mark so you can say what should change there (Enter or Esc closes it).
   Click a mark's number to reopen its note. Click the send button (or press Ctrl/Cmd+Enter) to add
@@ -125,13 +127,12 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   few threads (5 by default) and **Show more** lists them all again; on a collapsed project **Show more**
   expands it. Set how many threads stay in the Toolkit menu, under this feature's switch. The open
   thread always stays visible. The choice is kept per project in the current browser or desktop profile.
-- **Toolkit menu.** The **Toolkit** button (hammer icon) at the top right turns each feature on or off.
-  A switch applies at once and is saved in the current browser or desktop profile. Its **Privacy**
-  section has a telemetry switch for the desktop app started from the toolkit; it applies the next time
-  T3 Code starts. On the web, telemetry is set by the server (see [Telemetry](#telemetry)).
-- **Telemetry off** where it can be: see [Telemetry](#telemetry).
-- **Thread Details repository expansion (desktop 0.1.12).** **Show more** keeps the extra
-  repositories in the scrollable card. The fix is on by default for 0.1.12
+- **Toolkit menu.** The **Toolkit** button (hammer icon) at the top right groups feature switches into
+  sections across two columns. Narrow windows use a single column.
+  Feature switches apply at once and are saved in the current browser or desktop profile. The **Privacy**
+  section has an optional desktop telemetry switch that applies the next time T3 Code starts. See [Telemetry](#telemetry).
+- **Thread Details repository expansion (desktop 0.1.12 and 0.1.13).** **Show more** keeps the extra
+  repositories in the scrollable card. The fix is on by default for these versions
   and has its own switch in the Toolkit menu. [T3 Code issue #42907](https://github.com/pingdotgg/t3code/issues/42907)
 - **Organize repositories (desktop 0.1.12 and 0.1.13).** In Thread Details, pin rows to the top, move them
   up or down, or hide them from the list. Filter by name to **Hide matches**, or open the organizer
@@ -196,13 +197,15 @@ Without installing: `npm run desktop -- [--app <path>] [--keep-telemetry]`.
 
 ## Telemetry
 
-T3 Code's analytics are sent by its **server**, not the page, so:
+T3 Code's server controls its analytics settings.
 
-- **Desktop:** the launcher starts the app with `T3CODE_TELEMETRY_ENABLED=false`. To make it permanent, even
-  when you start T3 Code normally, run `scripts\telemetry.cmd off` (Windows) or `scripts/telemetry.sh off`
-  (macOS/Linux), then restart T3 Code. Use `on` to undo. The **Toolkit** menu's telemetry switch changes
-  the launcher's own setting (the same as installing with `--keep-telemetry`); it can't override the
-  permanent user setting from those scripts.
+- **Desktop:** Toolkit uses T3 Code's existing telemetry setting by default. To opt out, check
+  **Toolkit → Privacy → Turn off T3 Code telemetry** and restart from **T3 Code + Toolkit**. Uncheck it
+  and restart to use T3 Code's setting again. Upgrading from a version that disabled telemetry by default
+  starts with the switch unchecked. Future updates preserve your choice in the switch.
+- **Normal desktop starts:** to turn off telemetry for your user account, run `scripts\telemetry.cmd off`
+  (Windows) or `scripts/telemetry.sh off` (macOS/Linux), then restart T3 Code. Use `on` to undo.
+  The Toolkit launcher respects this setting while the environment turns telemetry off.
 - **Self-hosted `t3`:** set `T3CODE_TELEMETRY_ENABLED=false` where the server runs.
 - **Hosted app.t3.codes:** the extension can't turn it off. That's up to the service.
 

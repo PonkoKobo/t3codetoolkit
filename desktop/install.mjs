@@ -111,7 +111,8 @@ if (!flag("--no-shortcuts")) {
 const config = {
   version,
   app: appPath,
-  keepTelemetry: flag("--keep-telemetry") || previous?.keepTelemetry === true,
+  // Older installs wrote keepTelemetry=false by default, so it cannot record an explicit opt-out.
+  telemetryOff: !flag("--keep-telemetry") && previous?.telemetryOff === true,
   // Keep entries from an earlier install that this run didn't recreate, so uninstall finds them.
   shortcuts: [...new Set([...(previous?.shortcuts ?? []).filter((s) => existsSync(s)), ...shortcuts])],
   installedAt: new Date().toISOString(),
@@ -122,9 +123,9 @@ say(`T3CodeToolkit ${version} is installed in ${dir}`);
 say(`T3 Code: ${appPath}`);
 for (const s of shortcuts) say(`Start it from: ${s}`);
 say(
-  config.keepTelemetry
-    ? "Telemetry: left as T3 Code has it."
-    : "Telemetry: off for T3 Code started this way. (scripts/telemetry also turns it off for normal starts.)",
+  config.telemetryOff
+    ? "Telemetry: off for T3 Code started this way."
+    : "Telemetry: uses your T3 Code setting. To turn it off, open Toolkit > Privacy.",
 );
 say("Quit T3 Code before starting it from the toolkit entry; the app only runs one copy at a time.");
 

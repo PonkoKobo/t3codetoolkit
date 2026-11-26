@@ -79,19 +79,18 @@ if (process.platform === "win32" && installed && existsSync(join(here, windowsLa
 // Only reaches the backend this app starts. Remote servers you connect to keep their own setting.
 // T3 Code treats these values as "off".
 const isOff = (value) => /^(false|no|off|0|n)$/i.test(String(value ?? "").trim());
-const keepTelemetry = flag("--keep-telemetry") || config.keepTelemetry === true;
-if (!keepTelemetry) env.T3CODE_TELEMETRY_ENABLED = "false";
+const keepTelemetry = flag("--keep-telemetry");
+const toolkitDisablesTelemetry = () => !keepTelemetry && config.telemetryOff === true;
+if (toolkitDisablesTelemetry()) env.T3CODE_TELEMETRY_ENABLED = "false";
 const telemetryOffNow = isOff(env.T3CODE_TELEMETRY_ENABLED);
-// Set for the whole user account (scripts/telemetry), which the launcher can't override.
-const telemetryOffForUser = isOff(process.env.T3CODE_TELEMETRY_ENABLED);
+const inheritedTelemetryOff = isOff(process.env.T3CODE_TELEMETRY_ENABLED);
 
 /** What the toolkit menu shows: telemetry now, after the next start, and whether it can be changed. */
 function telemetryState() {
-  const keep = flag("--keep-telemetry") || config.keepTelemetry === true;
   return {
     offNow: telemetryOffNow,
-    offNextStart: telemetryOffForUser || !keep,
-    lockedBy: telemetryOffForUser ? "user-setting" : flag("--keep-telemetry") ? "flag" : !installed ? "not-installed" : null,
+    offNextStart: inheritedTelemetryOff || toolkitDisablesTelemetry(),
+    lockedBy: inheritedTelemetryOff ? "user-setting" : keepTelemetry ? "flag" : !installed ? "not-installed" : null,
   };
 }
 
@@ -102,10 +101,10 @@ function setTelemetryOff(off) {
   try {
     saved = JSON.parse(readFileSync(configPath, "utf8"));
   } catch {}
-  config = { ...saved, keepTelemetry: !off };
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}
-`);
-  log("telemetry", { keepTelemetry: !off });
+  const updated = { ...saved, telemetryOff: off };
+  writeFileSync(configPath, `${JSON.stringify(updated, null, 2)}\n`);
+  config = updated;
+  log("telemetry", { telemetryOff: off });
   return telemetryState();
 }
 // We may be running as Node inside T3 Code's own binary; the app itself must start normally.

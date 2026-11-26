@@ -12,7 +12,7 @@ Status: **v0.1, partly verified.** Researched against upstream `pingdotgg/t3code
 | Compact | `/compact` exists: `ChatView.onCompactContext` → `sendStandaloneCommand("/compact")`, guarded by `compactDisabled` / `compactThreadUnavailable`. | A **Compact button** under the Context row of the thread details panel. It calls upstream's own handler, so every upstream guard still applies. |
 | Image viewer | `ExpandedImageDialog` shows an attachment with zoom and a caption bar. No markup tools. | An **Annotate** button in the caption bar that opens a pen / arrow / box / numbered-pin editor with a note per mark. The result is attached to the message with the notes as text. |
 | Project image gallery | ✅ | ⚠️ unverified | Verified on a local `t3` 0.1.12 server in headless Chromium (web). The desktop connection path follows upstream's own client code but hasn't been run in the app. |
-| Disable telemetry | The server reads `T3CODE_TELEMETRY_ENABLED` (`false/no/off/0/n`). Desktop also inherits it from the user environment. No UI toggle. | The desktop launcher sets it for the server it starts; `scripts/telemetry.*` set it persistently. |
+| Disable telemetry | The server reads `T3CODE_TELEMETRY_ENABLED` (`false/no/off/0/n`). Desktop also inherits it from the user environment. No UI toggle. | The desktop switch opts out for the local server started by Toolkit. `scripts/telemetry.*` opt out persistently when run by the user. |
 | Custom CSS | Settings → Theme editor → Custom CSS. | Nothing. Don't duplicate it. |
 
 ## 2. Where each feature can run
@@ -69,7 +69,8 @@ The desktop window loads `t3code://app`, which no extension can see. `desktop/la
 
 1. Starts the app with `--remote-debugging-pipe` (CDP over fds 3/4, NUL-terminated JSON; no network
    port, so nothing else can attach). Removes `NODE_OPTIONS`/`ELECTRON_RUN_AS_NODE` from its env and
-   sets `T3CODE_TELEMETRY_ENABLED=false` (unless `--keep-telemetry`).
+   sets `T3CODE_TELEMETRY_ENABLED=false` only when the user has enabled the opt-out switch and
+   launched without `--keep-telemetry`.
 2. Attaches only to `t3code://app` page targets and uses `Page.addScriptToEvaluateOnNewDocument` +
    `Runtime.evaluate`, then checks that `window.__t3tk` came up.
 3. If the app exits without ever showing a `t3code://app` window, T3 Code was already running (it's
@@ -157,10 +158,10 @@ switch off/on that persists across reload. Not yet run in the desktop app.
 
 Telemetry switch: the desktop launcher adds a DevTools binding (`__t3tkLauncher`) to the windows it
 injects. The menu sends `{get}` or `{telemetryOff}` and the launcher answers through
-`window.__t3tkLauncherReply`. It only flips `keepTelemetry` in the install's `config.json`, so it
-applies at the next start. It is locked when run from source, with `--keep-telemetry`, or when the user
-environment already turns telemetry off. Checked with the launcher against headless Chromium, not
-against the T3 Code app.
+`window.__t3tkLauncherReply`. It writes `telemetryOff` in the install's `config.json` for the next
+start. The switch is unchecked by default, including on upgrade from the legacy `keepTelemetry`
+setting, whose false value was used for both the default and a user-selected opt-out. The switch is
+locked when run from source, with `--keep-telemetry`, or when the inherited environment turns telemetry off.
 
 Model switcher: the picker reopens on the Favorites tab each time (checked live), and Ctrl+Alt+digit
 has no upstream binding. Both shortcuts go through `pickerDriver.withPicker`, which opens the picker with

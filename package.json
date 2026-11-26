@@ -1,6 +1,6 @@
 {
   "name": "t3codetoolkit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Unofficial add-on for T3 Code. Not affiliated with or endorsed by T3 Tools, Inc.",
   "type": "module",

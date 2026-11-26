@@ -35,16 +35,16 @@ before(() => {
 });
 after(() => rmSync(tmp, { recursive: true, force: true }));
 
-test("launcher dry run resolves the app and turns telemetry off", () => {
+test("launcher dry run resolves the app and inherits telemetry by default", () => {
   const out = JSON.parse(run("desktop/launch.mjs", ["--app", fakeApp, "--dry-run"]));
   assert.equal(out.appPath, fakeApp);
-  assert.equal(out.telemetry, "false");
+  assert.equal(out.telemetry, "(unchanged)");
   assert.deepEqual(out.launchArgs, ["--remote-debugging-pipe"]);
   assert.ok(out.bundlePath.endsWith("t3tk-core.js"));
   const kept = JSON.parse(run("desktop/launch.mjs", ["--app", fakeApp, "--dry-run", "--keep-telemetry"]));
   assert.equal(kept.telemetry, "(unchanged)");
   // Run from the source folder, the menu switch can't save anything, so it shows as locked.
-  assert.deepEqual(out.telemetryState, { offNow: true, offNextStart: true, lockedBy: "not-installed" });
+  assert.deepEqual(out.telemetryState, { offNow: false, offNextStart: false, lockedBy: "not-installed" });
   assert.equal(kept.telemetryState.lockedBy, "flag");
   const userOff = JSON.parse(execFileSync(process.execPath, [join(root, "desktop/launch.mjs"), "--app", fakeApp, "--dry-run", "--keep-telemetry"], { env: { ...env, T3CODE_TELEMETRY_ENABLED: "off" }, encoding: "utf8" }));
   assert.deepEqual(userOff.telemetryState, { offNow: true, offNextStart: true, lockedBy: "user-setting" });
@@ -71,7 +71,7 @@ test("install, run the installed launcher, uninstall", () => {
   const config = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
   assert.equal(config.version, version);
   assert.equal(config.app, fakeApp);
-  assert.equal(config.keepTelemetry, false);
+  assert.equal(config.telemetryOff, false);
   assert.equal(config.shortcuts.length, 1);
   const [entry] = config.shortcuts;
   assert.ok(entry.startsWith(shortcuts), "entry created in the requested folder");
@@ -102,19 +102,38 @@ test("install, run the installed launcher, uninstall", () => {
   }
 
   // The installed copy uses its own bundle and the app recorded at install time.
-  const out = JSON.parse(execFileSync(process.execPath, [join(dir, "launch.mjs"), "--dry-run"], { env, encoding: "utf8" }));
+  const dryRun = (...args) => JSON.parse(execFileSync(process.execPath, [join(dir, "launch.mjs"), "--dry-run", ...args], { env, encoding: "utf8" }));
+  const out = dryRun();
   assert.equal(out.appPath, fakeApp);
   assert.equal(out.bundlePath, join(dir, "t3tk-core.js"));
-  assert.equal(out.telemetry, "false");
-  assert.deepEqual(out.telemetryState, { offNow: true, offNextStart: true, lockedBy: null });
+  assert.equal(out.telemetry, "(unchanged)");
+  assert.deepEqual(out.telemetryState, { offNow: false, offNextStart: false, lockedBy: null });
 
-  // An update from an older install preserves its telemetry preference and shortcut.
-  writeFileSync(join(dir, "config.json"), JSON.stringify({ ...config, version: "0.0.1", keepTelemetry: true }));
-  run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--shortcuts", shortcuts]);
-  const upgraded = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+  // Older installs wrote keepTelemetry=false by default. That is insufficient to opt out.
+  const configPath = join(dir, "config.json");
+  const legacyConfig = { ...config, version: "0.2.2", keepTelemetry: false };
+  delete legacyConfig.telemetryOff;
+  writeFileSync(configPath, JSON.stringify(legacyConfig));
+  assert.equal(dryRun().telemetry, "(unchanged)");
+  const reinstall = (...args) => run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--no-shortcuts", ...args]);
+  reinstall();
+  const upgraded = JSON.parse(readFileSync(configPath, "utf8"));
   assert.equal(upgraded.version, version);
-  assert.equal(upgraded.keepTelemetry, true);
+  assert.equal(upgraded.telemetryOff, false);
   assert.deepEqual(upgraded.shortcuts, [entry]);
+
+  // A choice made with the new switch persists across updates.
+  writeFileSync(configPath, JSON.stringify({ ...upgraded, telemetryOff: true }));
+  reinstall();
+  const optedOut = dryRun();
+  assert.equal(optedOut.telemetry, "false");
+  assert.deepEqual(optedOut.telemetryState, { offNow: true, offNextStart: true, lockedBy: null });
+  const kept = dryRun("--keep-telemetry");
+  assert.equal(kept.telemetry, "(unchanged)");
+  assert.deepEqual(kept.telemetryState, { offNow: false, offNextStart: false, lockedBy: "flag" });
+
+  reinstall("--keep-telemetry");
+  assert.equal(dryRun().telemetry, "(unchanged)");
 
   run("desktop/install.mjs", ["--uninstall", "--dir", dir]);
   assert.equal(existsSync(dir), false, "install folder removed");

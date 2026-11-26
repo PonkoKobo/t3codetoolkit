@@ -21,6 +21,40 @@ const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, 
 const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
+const MENU_COLUMNS = [
+  [
+    ["Chat & images", [
+      [compactButton, "Compact button", "Shift+C", "in Thread Details"],
+      [imageAnnotate, "Annotate images", "Shift+A", "in the image viewer"],
+      [imageGallery, "Project image gallery"],
+    ]],
+    ["Models & effort", [
+      [effortShortcuts, "Reasoning effort shortcuts", "Alt/Option + 1–6", "Hold or scroll for levels"],
+      [modelSwitcher, "Favorite model shortcuts", "Ctrl+Alt + 1–9", "Hold for favorites"],
+      [arrangeFavorites, "Arrange Favorites"],
+    ]],
+  ],
+  [
+    ["Projects & sidebar", [
+      [projectSwitcher, "Open a thread in a pinned project", "Ctrl+Shift + 1–9", "Hold for projects"],
+      [sidebarProjectOrder, "Match sidebar order to pinned shortcuts"],
+      [projectColors, "Colour project names by icon"],
+      [projectThreadMenu, "Project Show more / Show less", null, "Right-click a project"],
+    ]],
+    ["Thread Details", [[threadRepositoryOverflow, "Repository organizer & expansion"]]],
+    ["Privacy"],
+  ],
+];
+
+function menuSection(title) {
+  const section = document.createElement("section");
+  section.className = "t3tk-menu-section";
+  const heading = document.createElement("h2");
+  heading.className = "t3tk-menu-subheading";
+  heading.textContent = title;
+  section.append(heading);
+  return section;
+}
 
 /** Features switched off in the toolkit menu, kept per browser or desktop profile. */
 function readDisabled() {
@@ -93,11 +127,7 @@ function boot(surface, hostVersion, paused = false) {
   }
 
   function telemetrySection() {
-    const section = document.createElement("div");
-    section.className = "t3tk-menu-section";
-    const heading = document.createElement("div");
-    heading.className = "t3tk-menu-subheading";
-    heading.textContent = "Privacy";
+    const section = menuSection("Privacy");
     const row = document.createElement("label");
     row.className = "t3tk-menu-row";
     const input = document.createElement("input");
@@ -109,7 +139,7 @@ function boot(surface, hostVersion, paused = false) {
     const state = document.createElement("small");
     text.append(state);
     row.append(input, text);
-    section.append(heading, row);
+    section.append(row);
 
     if (!hasLauncher()) {
       state.textContent = window.desktopBridge
@@ -120,13 +150,16 @@ function boot(surface, hostVersion, paused = false) {
     const show = (s) => {
       input.checked = s.offNextStart;
       input.disabled = Boolean(s.lockedBy);
-      const now = s.offNow ? "Off now" : "On now";
+      const now = s.offNow ? "Telemetry is off." : "Using T3 Code’s telemetry setting.";
       const lock = {
-        "user-setting": "Turned off for your user account by scripts/telemetry.",
+        "user-setting": "Turned off by the launch environment.",
         flag: "Set by the --keep-telemetry launch option.",
         "not-installed": "Install the toolkit to change this here.",
       }[s.lockedBy];
-      state.textContent = lock ? `${now}. ${lock}` : s.offNow === s.offNextStart ? now : `${now}; ${s.offNextStart ? "off" : "on"} after T3 Code restarts.`;
+      const afterRestart = s.offNextStart
+        ? "Telemetry will turn off after restart."
+        : "T3 Code’s telemetry setting will apply after restart.";
+      state.textContent = lock ? `${now} ${lock}` : s.offNow === s.offNextStart ? now : afterRestart;
     };
     state.textContent = "Checking…";
     askLauncher({ get: true }).then(show, (error) => (state.textContent = error.message));
@@ -148,6 +181,7 @@ function boot(surface, hostVersion, paused = false) {
     menu.button.setAttribute("aria-expanded", "false");
     document.removeEventListener("pointerdown", menu.outside, true);
     document.removeEventListener("keydown", menu.escape, true);
+    window.removeEventListener("resize", menu.position);
     menu = null;
   }
 
@@ -166,11 +200,33 @@ function boot(surface, hostVersion, paused = false) {
       build.textContent = buildNote(BUILD);
       heading.append(build);
     }
-    const note = document.createElement("small");
-    note.textContent = paused ? "Features paused for this desktop version. Your saved switches are preserved." : "Unofficial add-on. Switches apply now and are saved in this client.";
-    heading.append(note);
+    if (paused) {
+      const note = document.createElement("small");
+      note.textContent = "Features paused for this desktop version. Your saved switches are preserved.";
+      heading.append(note);
+    }
     panel.append(heading);
-    for (const feature of available) {
+    const grid = document.createElement("div");
+    grid.className = "t3tk-menu-grid";
+    for (const groups of MENU_COLUMNS) {
+      const column = document.createElement("div");
+      column.className = "t3tk-menu-column";
+      for (const [title, entries] of groups) {
+        if (!entries) {
+          column.append(telemetrySection());
+          continue;
+        }
+        const visible = entries.filter(([feature]) => available.includes(feature));
+        if (!visible.length) continue;
+        const section = menuSection(title);
+        for (const entry of visible) appendFeature(section, ...entry);
+        column.append(section);
+      }
+      grid.append(column);
+    }
+    panel.append(grid);
+
+    function appendFeature(section, feature, label, shortcut, hint) {
       const row = document.createElement("label");
       row.className = "t3tk-menu-row";
       const input = document.createElement("input");
@@ -179,10 +235,20 @@ function boot(surface, hostVersion, paused = false) {
       input.checked = active.has(feature);
       input.disabled = forced.has(feature.id);
       const text = document.createElement("span");
-      text.textContent = feature.title;
+      text.textContent = label;
+      if (shortcut || hint) {
+        const detail = document.createElement("small");
+        if (shortcut) {
+          const key = document.createElement("kbd");
+          key.textContent = shortcut;
+          detail.append(key);
+        }
+        if (hint) detail.append(shortcut ? ` ${hint}` : hint);
+        text.append(detail);
+      }
       const state = document.createElement("small");
       const refresh = () => {
-        state.textContent = paused ? "Paused for this session" : forced.has(feature.id) ? "Off (set by the loader)" : health[feature.id] === "broken" ? "Paused after an error" : active.has(feature) ? "On" : "Off";
+        state.textContent = paused ? "" : forced.has(feature.id) ? "Off (set by the loader)" : health[feature.id] === "broken" ? "Paused after an error" : "";
       };
       refresh();
       text.append(state);
@@ -200,14 +266,17 @@ function boot(surface, hostVersion, paused = false) {
       });
       input.dataset.t3tkFeature = feature.id;
       row.append(input, text);
-      panel.append(row);
-      if (feature.settings && active.has(feature)) panel.append(feature.settings());
+      section.append(row);
+      if (feature.settings && active.has(feature)) section.append(feature.settings());
     }
-    panel.append(telemetrySection());
     document.body.append(panel);
-    const box = button.getBoundingClientRect();
-    panel.style.top = `${Math.round(box.bottom + 6)}px`;
-    panel.style.right = `${Math.max(8, Math.round(window.innerWidth - box.right))}px`;
+    const position = () => {
+      const box = button.getBoundingClientRect();
+      const maxRight = Math.max(8, window.innerWidth - panel.offsetWidth - 8);
+      panel.style.top = `${Math.round(box.bottom + 6)}px`;
+      panel.style.right = `${Math.min(maxRight, Math.max(8, Math.round(window.innerWidth - box.right)))}px`;
+    };
+    position();
     button.setAttribute("aria-expanded", "true");
     const outside = (event) => {
       if (!panel.contains(event.target) && !button.contains(event.target)) closeMenu();
@@ -221,7 +290,8 @@ function boot(surface, hostVersion, paused = false) {
     };
     document.addEventListener("pointerdown", outside, true);
     document.addEventListener("keydown", escape, true);
-    menu = { panel, button, outside, escape };
+    window.addEventListener("resize", position);
+    menu = { panel, button, outside, escape, position };
     panel.querySelector("input:not(:disabled)")?.focus();
   }
 

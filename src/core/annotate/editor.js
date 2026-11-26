@@ -92,7 +92,7 @@ export function closeAllAnnotators() {
   for (const dispose of [...live]) dispose();
 }
 
-export async function openAnnotator({ src, name }) {
+export async function openAnnotator({ src, name }, beforeOpen) {
   // Bind to the draft that was open when annotation started, not whichever is open at send time.
   const target = findComposer()?.editor ?? null;
   const returnFocus = document.activeElement;
@@ -102,8 +102,9 @@ export async function openAnnotator({ src, name }) {
   let img;
   try {
     img = await loadImage(src);
+    if (cancelled || (beforeOpen && !(await beforeOpen()))) return;
   } catch {
-    toast("Couldn't load this image for annotation.");
+    if (!cancelled) toast("Couldn't open this image for annotation.");
     return;
   } finally {
     live.delete(cancelLoad);

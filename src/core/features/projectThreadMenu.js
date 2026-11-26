@@ -181,7 +181,7 @@ function settings() {
   const row = document.createElement("label");
   row.className = "t3tk-menu-row t3tk-menu-setting";
   const text = document.createElement("span");
-  text.textContent = "Threads shown when a project shows less";
+  text.textContent = "Threads shown with Show less";
   const input = document.createElement("input");
   input.type = "number";
   input.min = String(MIN_LIMIT);

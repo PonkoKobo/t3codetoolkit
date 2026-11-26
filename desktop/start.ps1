@@ -42,7 +42,9 @@ if ($config.app -and (Test-Path -LiteralPath $config.app -PathType Leaf)) {
   $answer = [System.Windows.Forms.MessageBox]::Show("Toolkit could not start (code $code). Open T3 Code with Toolkit disabled for this session?", 'T3CodeToolkit', 'YesNo')
   if ($answer -eq 'Yes') {
     Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-    if (-not $config.keepTelemetry -and $args -notcontains '--keep-telemetry') { $env:T3CODE_TELEMETRY_ENABLED = 'false' }
+    if ($config.telemetryOff -is [bool] -and $config.telemetryOff -and $args -notcontains '--keep-telemetry') {
+      $env:T3CODE_TELEMETRY_ENABLED = 'false'
+    }
     try {
       Start-Process -FilePath $config.app -ErrorAction Stop
       Show-Message 'Toolkit is disabled for this launch. To use it next time, quit T3 Code and open "T3 Code + Toolkit".'
