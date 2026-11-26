@@ -60,6 +60,11 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   strip and works as usual. The switcher stays off on the Usage page (Ctrl+Shift+1–4 choose its period) and
   in the terminal (not yet tested there). If the draft already has a message but no project, clear the
   message first. On Windows, Ctrl+Shift on its own can switch the keyboard layout when more than one is installed.
+- **Sidebar project order.** Pinned projects in the sidebar follow the same order as the Ctrl+Shift
+  numbers, with the number after each name, instead of moving with thread activity. Change the order by
+  dragging in the project picker. Unpinned projects keep T3 Code's own order; choose **Manual** project
+  sorting in T3 Code's settings to stop those moving too. Rows are reordered on screen only, so arrow-key
+  navigation in the sidebar still follows T3 Code's order.
 - **Arrange Favorites.** In the model picker, open **Favorites**, then **Arrange Favorites**. Drag a row by
   its grip (⠿), or use the up/down buttons, to move models across providers, then click **Done**.
   While the arranged list shows, Ctrl+1–9 (Cmd on macOS) picks models in that order. The order saves as you move each
@@ -185,18 +190,22 @@ The toolkit uses `MAJOR.MINOR.PATCH` versions independent of T3 Code's version. 
 a minor bump for new features, and a major bump for breaking changes after 1.0. During 0.x, document breaking
 changes in the notes and bump the minor version. The browser manifest requires a numeric version.
 
+**Every version bump must ship with a published GitHub Release for the same version.** Push the
+version commit and its matching annotated tag together, then verify the release is live.
+
 1. Run `npm run release:version -- patch` (or `minor` or `major`) to update the package, lockfile and
    extension manifest together. The bundle takes its displayed version from `package.json` at build time.
    A build of anything other than the clean, tagged release commit shows `+dev` after the version and,
    under it, the commit and the release it follows, so only the published build shows the bare number.
    For the first release of an already-set version, skip the bump.
-2. Run the package command and tests, then commit the changes and push them to the default branch.
-3. Tag that commit with a short note about what changed for users.
-   For example, run `git tag -a v0.1.1 -m "Fix model switching when the picker is open."` and push the tag
-   with `git push origin v0.1.1`. Use the version in `package.json` for both commands.
-4. When all three CI jobs pass, GitHub Actions creates a draft with all four ZIPs, checksums, install steps
-   and the tag message's first line under **What's new**. Review the draft and publish it from
-   [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
+2. Run the package command and tests, then commit the changes at the tip of the default branch.
+3. Tag that commit with the version from `package.json` and a short note about what changed for users.
+   For example, run `git tag -a v0.2.2 -m "Fix model switching when the picker is open."`, then
+   `git push --atomic origin main v0.2.2`. CI checks that a version bump on the default branch has its
+   matching annotated tag on the pushed commit.
+4. When the tagged build passes CI on Windows, macOS and Linux, GitHub Actions publishes all four
+   ZIPs, checksums, install steps and the tag message's first line under **What's new**. Check that
+   the new version and its downloads appear on [GitHub Releases](https://github.com/PonkoKobo/t3codetoolkit/releases).
 
 ## License and trademarks
 

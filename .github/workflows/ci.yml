@@ -26,6 +26,28 @@ jobs:
         with:
           node-version: 22 # zlib.crc32 (used by the packager) needs 22.2+
           cache: npm
+      - name: Require a release tag for version bumps
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+        shell: bash
+        env:
+          PREVIOUS_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$PREVIOUS_SHA" == 0000000000000000000000000000000000000000 ]]; then
+            exit 0
+          fi
+          git fetch --no-tags origin "$PREVIOUS_SHA"
+          previous_version=$(git show "$PREVIOUS_SHA:package.json" | jq -er '.version')
+          version=$(jq -er '.version' package.json)
+          if [[ "$version" == "$previous_version" ]]; then
+            exit 0
+          fi
+
+          tag="v$version"
+          tagged_commit=$(git ls-remote origin "refs/tags/$tag^{}" | cut -f1)
+          if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+            echo "::error::Push the version bump and its matching annotated tag $tag at the same commit."
+            exit 1
+          fi
       - run: npm ci
       - run: npm run package
       - run: npm test
@@ -41,7 +63,7 @@ jobs:
           overwrite: true
 
   release:
-    name: Draft GitHub release
+    name: Publish GitHub release
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: test
     runs-on: ubuntu-latest
@@ -53,7 +75,7 @@ jobs:
         with:
           name: release
           path: release
-      - name: Create draft with install downloads
+      - name: Publish with install downloads
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,4 +108,4 @@ jobs:
             "release/T3CodeToolkit-extension-edge-$version.zip#Microsoft Edge extension" \
             "release/T3CodeToolkit-extension-firefox-$version.zip#Firefox extension (temporary install)" \
             release/SHA256SUMS.txt \
-            --draft --verify-tag --title "T3CodeToolkit $version" --notes "$notes" --generate-notes
+            --verify-tag --title "T3CodeToolkit $version" --notes "$notes" --generate-notes
