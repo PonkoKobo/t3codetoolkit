@@ -29,46 +29,70 @@ test("the bundle stays inert outside T3 Code", () => {
   assert.equal(window.__t3tk, undefined);
 });
 
-function bootBundle(window = {}, savedFeatures = []) {
+function bootBundle(window = {}, savedFeatures = [], sessionChoice = "paused") {
   const document = {
     readyState: "complete",
-    querySelector: () => ({}),
-    createElement: () => ({ dataset: {} }),
+    querySelector: selector => selector === "#root" ? {} : null,
+    body: { append(element) { this.prompt = element; } },
+    createElement: () => ({
+      dataset: {}, style: {}, children: [],
+      append(child) { this.children.push(child); },
+      setAttribute() {}, remove() {}, addEventListener(name, action) { this[name] = action; },
+    }),
     head: { append() {} },
   };
   window.document = document;
   window.top = window;
   const context = vm.createContext({
-    window, document, console: { info() {} },
+    window, document, location: { protocol: "https:" }, sessionStorage: { getItem: () => sessionChoice }, clearTimeout() {}, console: { info() {} },
     localStorage: { getItem: () => JSON.stringify(savedFeatures) },
     MutationObserver: class { observe() {} },
     setTimeout: () => 1,
   });
   vm.runInContext(read("dist/t3tk-core.js").toString("utf8"), context);
-  return window.__t3tk;
+  return window;
 }
 
 test("the toolkit reports the package version when it boots", () => {
-  assert.equal(bootBundle().version, version);
+  assert.equal(bootBundle().__t3tk.version, version);
 });
 
 test("repository expansion fix uses only the desktop app's exact version", async () => {
   const id = "fix-thread-repository-overflow";
   const desktop = (currentVersion) => ({ desktopBridge: { getUpdateState: async () => ({ currentVersion }) } });
   const affected = bootBundle(desktop("0.1.12"));
+  const updated = bootBundle(desktop("0.1.13"));
   const off = bootBundle(desktop("0.1.12"), [id]);
   const unaffected = [
     bootBundle(),
     bootBundle(desktop("0.1.11")),
-    bootBundle(desktop("0.1.13")),
+
     bootBundle(desktop("0.1.12-rc.1")),
     bootBundle({ desktopBridge: { getUpdateState: async () => { throw new Error("Offline"); } } }),
   ];
   await new Promise((resolve) => setImmediate(resolve));
-  assert.ok(affected.enabled().includes(id));
-  assert.ok(off.features.some((feature) => feature.id === id));
-  assert.ok(!off.enabled().includes(id));
-  for (const toolkit of unaffected) assert.ok(!toolkit.features.some((feature) => feature.id === id));
+  assert.ok(updated.__t3tk.enabled().includes(id));
+  assert.ok(affected.__t3tk.enabled().includes(id));
+  assert.ok(off.__t3tk.features.some((feature) => feature.id === id));
+  assert.ok(!off.__t3tk.enabled().includes(id));
+  for (const toolkit of unaffected) assert.ok(!toolkit.__t3tk.features.some((feature) => feature.id === id));
+});
+
+test("an unchecked host stays usable while Toolkit waits for a session choice", async () => {
+  for (const tryFeatures of [false, true]) {
+    const host = bootBundle({ desktopBridge: { getUpdateState: () => ({ currentVersion: "0.1.14" }) } },
+      ["model-switcher"], null);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(host.__t3tk, undefined);
+    const buttons = host.document.body.prompt.children.slice(1);
+    assert.deepEqual(buttons.map(button => button.textContent), ["Continue with features paused", "Try my features"]);
+    buttons[Number(tryFeatures)].click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(host.__t3tk.enabled().includes("compact-button"), tryFeatures);
+    if (!tryFeatures) assert.match(host.document.body.prompt.textContent, /Toolkit is disabled for this session/);
+    assert.ok(!host.__t3tk.enabled().includes("model-switcher"));
+    assert.ok(!host.__t3tk.features.some(feature => feature.id === "fix-thread-repository-overflow"));
+  }
 });
 
 test("extension manifest matches the package version and names itself unofficial", () => {

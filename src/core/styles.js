@@ -7,6 +7,7 @@ export const CSS = `
   white-space: nowrap; pointer-events: auto; -webkit-app-region: no-drag;
 }
 button.t3tk-loaded { background: transparent; cursor: pointer; }
+button[data-t3tk-status-fallback] { position: fixed; top: 8px; right: 8px; z-index: 2147483001; background: var(--background, Canvas); }
 button.t3tk-loaded:hover, button.t3tk-loaded[aria-expanded="true"] {
   color: var(--foreground, inherit); background: color-mix(in oklab, var(--foreground, #888) 8%, transparent);
 }

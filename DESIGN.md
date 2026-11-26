@@ -196,7 +196,7 @@ Every feature needs an off switch that fully restores upstream behaviour.
 
 - Don't touch `~/.t3/userdata` or the T3 database. Talk to the app only through its UI.
 - Don't call internal RPCs from injected code. One approved exception: the image gallery reads (never
-  writes) through the app's own server API: `orchestration.subscribeShell` for the thread list,
+  writes) through the app's own server API: `orchestration.subscribeShell` and `orchestration.getArchivedShellSnapshot` for active and archived threads,
   `GET /api/orchestration/threads/:id/transcript` (falling back to `/bounded` plus `/history` pages for
   threads the server says are too large) with `x-t3-orchestration-protocol: 2`, and `assets.createUrl`
   to get short-lived image URLs. Web uses the page's session cookie; desktop uses the bridge's local

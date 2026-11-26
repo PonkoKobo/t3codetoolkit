@@ -5,6 +5,7 @@
 import { openAnnotator } from "../annotate/editor.js";
 import { addToComposer, findComposer } from "../composer.js";
 import { arrangeImages, imagesFromRows, projectThreads, SORTS } from "../galleryData.js";
+import { homeHref } from "../projectKeys.js";
 import { findPropsUp } from "../react.js";
 import { ICONS, toast } from "../styles.js";
 
@@ -171,15 +172,15 @@ function describeFailure(exit) {
 
 // ---------------------------------------------------------------- data
 
-async function listThreads(conn) {
+export async function listThreads(conn) {
   const threads = [];
-  let projects = [];
+  let archiveIncluded = false;
   await conn.rpc.stream(
     "orchestration.subscribeShell",
-    { afterSequence: 0, requestCompletionMarker: true, omitIdleSubagents: false, omitOlderSettled: false },
+    { requestCompletionMarker: true, omitIdleSubagents: false, omitOlderSettled: false },
     (value) => {
       if (value.kind === "snapshot" && value.snapshot) {
-        projects = value.snapshot.projects ?? [];
+        archiveIncluded ||= Boolean(value.snapshot.archivedThreads?.length);
         threads.push(...(value.snapshot.threads ?? []), ...(value.snapshot.archivedThreads ?? []));
       } else if (value.thread) {
         threads.push(value.thread);
@@ -187,7 +188,15 @@ async function listThreads(conn) {
       return value.kind === "synchronized";
     },
   );
-  return { threads, projects };
+  // Newer servers keep the archive outside the initial active-thread snapshot.
+  try {
+    const archive = await conn.rpc.call("orchestration.getArchivedShellSnapshot", {});
+    for (const thread of archive.threads) threads.push(thread);
+    archiveIncluded = true;
+  } catch {
+    // Older hosts may supply archived threads directly in the subscription.
+  }
+  return { threads, archiveIncluded };
 }
 
 async function threadRows(conn, threadId, signal) {
@@ -340,6 +349,7 @@ function showGallery(group) {
     const parts = [];
     parts.push(state.done ? `${state.total} threads scanned` : `Scanning ${state.scanned} of ${state.total || "…"} threads`);
     parts.push(`${state.images.size} images`);
+    if (state.archiveUnavailable) parts.push("Archive unavailable");
     if (state.failed) parts.push(`${state.failed} threads unreadable`);
     if (state.truncated) parts.push(`${state.truncated} very long thread${state.truncated > 1 ? "s" : ""} only partly read`);
     if (state.missing) parts.push(`${state.missing} missing files hidden`);
@@ -392,7 +402,7 @@ function showGallery(group) {
     const action = (label, title, onclick) => actions.append(el("button", { type: "button", className: "t3tk-btn", title, onclick }, label));
     action("Open thread", "Go to the thread this image is in", () => {
       close();
-      goToThread(group, image.threadId);
+      goToThread(image.environmentId, image.threadId);
     });
     action("Add to message", "Attach this image to the message you're writing", () => attachImage(image));
     action("Annotate", "Draw and comment on this image, then add it to your message", async () => {
@@ -510,7 +520,8 @@ async function scan(group, state, signal, scheduleRender, render) {
   if (signal.aborted) return;
   const local = (group.memberProjectRefs ?? []).filter((ref) => !conn.environmentId || ref.environmentId === conn.environmentId);
   state.skippedRemote = (group.memberProjectRefs ?? []).length - local.length;
-  const { threads } = await listThreads(conn);
+  const { threads, archiveIncluded } = await listThreads(conn);
+  state.archiveUnavailable = !archiveIncluded;
   if (signal.aborted) return;
   const queue = projectThreads(threads, local.map((ref) => ref.projectId)).filter((t) => t.itemCount !== 0);
   state.total = queue.length;
@@ -527,7 +538,7 @@ async function scan(group, state, signal, scheduleRender, render) {
           threadCache.set(thread.id, entry);
         }
         if (entry.truncated) state.truncated++;
-        for (const image of entry.images) state.images.set(image.key, { ...image, threadTitle: thread.title ?? image.threadTitle });
+        for (const image of entry.images) state.images.set(image.key, { ...image, environmentId: conn.environmentId ?? local[0]?.environmentId, threadTitle: thread.title ?? image.threadTitle });
       } catch (error) {
         if (signal.aborted) return;
         state.failed++;
@@ -543,11 +554,16 @@ async function scan(group, state, signal, scheduleRender, render) {
   render();
 }
 
-function goToThread(group, threadId) {
-  const environmentId = group.environmentId ?? group.memberProjectRefs?.[0]?.environmentId;
+function goToThread(environmentId, threadId) {
   if (!environmentId) return;
-  // The app's router follows history changes, the same as its own in-app links.
-  history.pushState(history.state, "", `/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}`);
+  const router = window.__TSR_ROUTER__;
+  if (typeof router?.navigate === "function") {
+    router.navigate({ to: "/$environmentId/$threadId", params: { environmentId, threadId } })
+      .catch(() => toast("Could not open this thread."));
+    return;
+  }
+  // Older clients without an exposed router still follow history changes.
+  history.pushState(history.state, "", `${homeHref(location, !!window.desktopBridge)}${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}`);
   dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
 }
 

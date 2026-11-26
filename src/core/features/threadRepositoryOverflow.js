@@ -6,6 +6,7 @@ import { REPOSITORY_ORGANIZER_CSS } from "./repositoryOrganizerStyles.js";
 const CARD = "[data-thread-details-card]";
 const VIEWPORT = ':scope > div > [data-slot="scroll-area-viewport"]';
 const SCROLLING_LISTS = "[data-thread-relationships-panel], [data-thread-side-chats-panel], [data-thread-details-pr-list], [data-thread-automations-panel], [data-thread-details-server-overflow]";
+const UPDATED_LISTS = SCROLLING_LISTS.replace("[data-thread-automations-panel]", "[data-thread-details-issue-list], [data-thread-automations-panel]") + ", [data-thread-details-repository-overflow]";
 const NATIVE_OVERFLOW = `${VERSION_CONTROL_LIST}:not([data-t3tk-repo-managed]) > ${REPOSITORY_ROW}:nth-child(n+5 of ${REPOSITORY_ROW})`;
 const EXTRA_REPOSITORY_ROWS = `${NATIVE_OVERFLOW}, [data-t3tk-repo-extra], .t3tk-repo-organize`;
 
@@ -20,6 +21,11 @@ function patchCard(card) {
   // total canvas height, React rows and all other selector calls stay intact.
   const querySelectorAll = content.querySelectorAll;
   const measure = function (selector) {
+    if (selector === UPDATED_LISTS) {
+      // Managed rows can move across the host's original overflow boundary.
+      return querySelectorAll.call(this, UPDATED_LISTS.replace("[data-thread-details-repository-overflow]",
+        "[data-thread-details-repository-overflow]:not([data-t3tk-repo-managed] > *)") + ", [data-t3tk-repo-extra], .t3tk-repo-organize");
+    }
     return querySelectorAll.call(this, selector === SCROLLING_LISTS
       ? `${SCROLLING_LISTS}, ${EXTRA_REPOSITORY_ROWS}`
       : selector);
@@ -44,9 +50,9 @@ function beforeClick(event) {
 
 export const threadRepositoryOverflow = {
   id: "fix-thread-repository-overflow",
-  title: "Thread Details repositories (T3 Code 0.1.12)",
+  title: "Thread Details repositories",
   surfaces: ["desktop"],
-  hostVersion: "0.1.12",
+  hostVersions: ["0.1.12", "0.1.13"],
   sync() {
     if (!organizerStyle) {
       organizerStyle = document.createElement("style");

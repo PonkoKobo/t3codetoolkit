@@ -5,7 +5,11 @@
 > **This project isn't affiliated with the official T3 Code.** It's an unofficial, community add-on for
 > [T3 Code](https://t3.codes), not made, endorsed or supported by T3 Tools, Inc.
 
-It targets stable T3 Code releases (tested on 0.1.12).
+Desktop support includes T3 Code 0.1.12 and 0.1.13. After an unrecognized desktop update,
+T3 Code opens with Toolkit features paused. Choose **Continue with features paused** or
+**Try my features** for the current window session. Both choices preserve your saved switches.
+A popup confirms when features are disabled, and the title-bar button reads **Toolkit disabled**.
+Version-specific fixes stay off until the desktop release has been checked.
 
 ## Install
 
@@ -127,9 +131,9 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   T3 Code starts. On the web, telemetry is set by the server (see [Telemetry](#telemetry)).
 - **Telemetry off** where it can be: see [Telemetry](#telemetry).
 - **Thread Details repository expansion (desktop 0.1.12).** **Show more** keeps the extra
-  repositories in the scrollable card. The fix is on by default for this exact T3 Code version
+  repositories in the scrollable card. The fix is on by default for 0.1.12
   and has its own switch in the Toolkit menu. [T3 Code issue #42907](https://github.com/pingdotgg/t3code/issues/42907)
-- **Organize repositories (desktop 0.1.12).** In Thread Details, pin rows to the top, move them
+- **Organize repositories (desktop 0.1.12 and 0.1.13).** In Thread Details, pin rows to the top, move them
   up or down, or hide them from the list. Filter by name to **Hide matches**, or open the organizer
   to show hidden rows again. The layout is shared by threads in the same project folder and saved
   in the current desktop profile.

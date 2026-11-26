@@ -131,7 +131,7 @@ let sawAppWindow = false;
 child.on("error", (error) => fail(`couldn't start T3 Code: ${error.message}`));
 child.on("exit", (code, signal) => {
   log("exited", { pid: child.pid, code, signal, sawAppWindow });
-  if (!sawAppWindow) {
+  if (!sawAppWindow && code === 0) {
     fail("T3 Code was already running, so the toolkit couldn't attach. Quit T3 Code, then start it again from the toolkit.", 3);
   }
   process.exit(code ?? 1);
@@ -236,7 +236,7 @@ async function inject(target) {
     await send("Runtime.runIfWaitingForDebugger", {}, sessionId).catch(() => {});
     injected.add(id);
     // The page may still be loading, in which case the toolkit starts once its DOM is ready.
-    const waitForToolkit = `new Promise((done) => { let n = 0; const poll = () => window.__t3tk ? done(window.__t3tk.version) : ++n > 50 ? done(null) : setTimeout(poll, 100); poll(); })`;
+    const waitForToolkit = `new Promise((done) => { let n = 0; const poll = () => window.__t3tk ? done(window.__t3tk.version) : document.querySelector(".t3tk-compatibility") ? done("waiting for compatibility choice") : ++n > 50 ? done(null) : setTimeout(poll, 100); poll(); })`;
     const check = await send("Runtime.evaluate", { expression: waitForToolkit, awaitPromise: true, returnByValue: true }, sessionId).catch(() => null);
     const active = check?.result?.value;
     say(active ? `toolkit ${active} active in ${target.url}` : `injected into ${target.url}, but the toolkit didn't start there`);

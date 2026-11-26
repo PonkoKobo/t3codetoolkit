@@ -79,3 +79,26 @@ test("project threads keep the newest copy, skip deleted and other projects", ()
   ];
   assert.deepEqual(projectThreads(threads, ["p1"]).map((t) => [t.id, t.title]), [["t1", "newer"], ["t2", undefined]]);
 });
+
+
+test("gallery reads full active and archived snapshots, retaining active rows if archive lookup fails", async () => {
+  const { listThreads } = await import("../src/core/features/imageGallery.js");
+  const active = { id: "active", projectId: "p" };
+  const archived = { id: "archived", projectId: "p" };
+  const rpc = {
+    async stream(tag, payload, receive) {
+      assert.equal(tag, "orchestration.subscribeShell");
+      assert.ok(!Object.hasOwn(payload, "afterSequence"));
+      receive({ kind: "snapshot", snapshot: { threads: [active], archivedThreads: [] } });
+      assert.equal(receive({ kind: "synchronized" }), true);
+    },
+    async call(tag, payload) {
+      assert.equal(tag, "orchestration.getArchivedShellSnapshot");
+      assert.deepEqual(payload, {});
+      return { threads: [archived] };
+    },
+  };
+  assert.deepEqual(await listThreads({ rpc }), { threads: [active, archived], archiveIncluded: true });
+  rpc.call = async () => { throw new Error("Archive unavailable"); };
+  assert.deepEqual(await listThreads({ rpc }), { threads: [active], archiveIncluded: false });
+});

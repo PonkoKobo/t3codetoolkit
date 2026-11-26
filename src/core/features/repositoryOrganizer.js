@@ -107,7 +107,8 @@ function applyDisplay(view, state, value) {
   if (visible.length > VISIBLE) {
     const label = view.showAll ? "Show fewer" : `Show ${visible.length - VISIBLE} more`;
     if (view.more.textContent !== label) view.more.textContent = label;
-    view.more.setAttribute("aria-expanded", String(view.showAll));
+    const expanded = String(view.showAll);
+    if (view.more.getAttribute("aria-expanded") !== expanded) view.more.setAttribute("aria-expanded", expanded);
     if (!view.more.isConnected) view.list.append(view.more);
   } else {
     view.more.remove();

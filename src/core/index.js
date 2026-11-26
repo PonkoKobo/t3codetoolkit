@@ -18,6 +18,7 @@ const VERSION = __T3TK_VERSION__;
 const BUILD = __T3TK_BUILD__;
 const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
 const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
+const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
 
@@ -47,12 +48,15 @@ function buildNote({ tag, ahead, commit, dirty, untagged }) {
   return untagged ? `${note} ${VERSION} isn't released on GitHub yet.` : note;
 }
 
-function boot() {
+function boot(surface, hostVersion, paused = false) {
   if (window.__t3tk) return;
-  const surface = window.desktopBridge ? "desktop" : "web";
   // __T3TK_DISABLED__ (set by whoever loads the bundle) can't be switched back on from the menu.
   const forced = new Set(window.__T3TK_DISABLED__ ?? []);
   const available = FEATURES.filter((f) => f.surfaces.includes(surface));
+  for (const fix of VERSION_FIXES) {
+    if (surface === "desktop" && fix.hostVersions.includes(hostVersion)) available.push(fix);
+  }
+  if (paused) for (const feature of available) forced.add(feature.id);
   const disabled = new Set(readDisabled());
   const active = new Set(available.filter((f) => !forced.has(f.id) && !disabled.has(f.id)));
   const health = Object.fromEntries(available.map((f) => [f.id, active.has(f) ? "idle" : "off"]));
@@ -163,7 +167,7 @@ function boot() {
       heading.append(build);
     }
     const note = document.createElement("small");
-    note.textContent = "Unofficial add-on. Switches apply now and are saved in this client.";
+    note.textContent = paused ? "Features paused for this desktop version. Your saved switches are preserved." : "Unofficial add-on. Switches apply now and are saved in this client.";
     heading.append(note);
     panel.append(heading);
     for (const feature of available) {
@@ -178,7 +182,7 @@ function boot() {
       text.textContent = feature.title;
       const state = document.createElement("small");
       const refresh = () => {
-        state.textContent = forced.has(feature.id) ? "Off (set by the loader)" : active.has(feature) ? "On" : "Off";
+        state.textContent = paused ? "Paused for this session" : forced.has(feature.id) ? "Off (set by the loader)" : health[feature.id] === "broken" ? "Paused after an error" : active.has(feature) ? "On" : "Off";
       };
       refresh();
       text.append(state);
@@ -228,16 +232,21 @@ function boot() {
   }
 
   function syncMenuButton() {
-    for (const controls of document.querySelectorAll("[data-workspace-titlebar-controls]")) {
+    const slots = [...document.querySelectorAll("[data-workspace-titlebar-controls]")];
+    const needsFallback = paused && slots.length === 0;
+    if (needsFallback) slots.push(document.body);
+    else document.querySelector("[data-t3tk-status-fallback]")?.remove();
+    for (const controls of slots) {
       if (controls.querySelector(":scope > [data-t3tk-loaded]")) continue;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "t3tk-loaded";
       button.dataset.t3tkLoaded = "";
-      button.title = `T3CodeToolkit ${LABEL}: turn features on or off`;
+      if (needsFallback) button.dataset.t3tkStatusFallback = "";
+      button.title = paused ? "Toolkit features are disabled for this session" : `T3CodeToolkit ${LABEL}: turn features on or off`;
       button.setAttribute("aria-haspopup", "dialog");
       button.setAttribute("aria-expanded", "false");
-      button.innerHTML = `${ICONS.hammer}<span>Toolkit</span>`;
+      button.innerHTML = `${ICONS.hammer}<span>${paused ? "Toolkit disabled" : "Toolkit"}</span>`;
       button.addEventListener("click", () => toggleMenu(button));
       controls.prepend(button);
     }
@@ -253,6 +262,8 @@ function boot() {
         health[feature.id] = feature.sync();
       } catch (error) {
         // A changed upstream layout disables just this feature; the app keeps working.
+        active.delete(feature);
+        try { feature.stop?.(); } catch {}
         health[feature.id] = "broken";
         console.warn(`[t3tk] ${feature.id} failed`, error);
       }
@@ -266,10 +277,12 @@ function boot() {
 
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state", "aria-current", "aria-expanded"] });
-  for (const feature of available) {
+  for (const feature of paused ? [] : available) {
     try {
       feature.init?.({ resync: schedule });
     } catch (error) {
+      active.delete(feature);
+      health[feature.id] = "broken";
       console.warn(`[t3tk] ${feature.id} failed to start`, error);
     }
   }
@@ -296,21 +309,7 @@ function boot() {
     },
   };
 
-  // The desktop bridge reports the installed app version, even if the window
-  // is connected to a server on a different release. Unknown versions get no fixes.
-  if (surface === "desktop") {
-    Promise.resolve().then(() => window.desktopBridge.getUpdateState?.()).then((state) => {
-      if (stopped) return;
-      for (const fix of VERSION_FIXES) {
-        if (fix.hostVersion !== state?.currentVersion || !fix.surfaces.includes(surface)) continue;
-        available.push(fix);
-        const enabled = !forced.has(fix.id) && !disabled.has(fix.id);
-        health[fix.id] = enabled ? "idle" : "off";
-        if (enabled) active.add(fix);
-      }
-      schedule();
-    }).catch(() => {});
-  }
+  if (paused) toast("Toolkit is disabled for this session. You can keep using T3 Code.", 7000);
   console.info(`[t3tk] T3CodeToolkit ${LABEL}${BUILD ? ` (${buildNote(BUILD)})` : ""} (unofficial add-on) active on ${surface}`);
 }
 
@@ -320,8 +319,57 @@ function looksLikeT3() {
   return !!document.querySelector("#root") || location.protocol === "t3code:";
 }
 
+async function compatibilityChoice(version) {
+  let choice;
+  const key = `t3tk.compatibility.${VERSION}.${version || "unknown"}`;
+  try { choice = sessionStorage.getItem(key); } catch {}
+  if (choice !== "paused" && choice !== "try") {
+    const prompt = document.createElement("aside");
+    prompt.className = "t3tk-compatibility";
+    prompt.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:2147483647;max-width:min(360px,90vw);padding:16px;border-radius:8px;background:Canvas;color:CanvasText;box-shadow:0 2px 14px #0005;font:14px system-ui";
+    prompt.setAttribute("aria-label", "Toolkit compatibility");
+    const message = document.createElement("p");
+    message.textContent = `Toolkit has not checked T3 Code ${version || "(version unknown)"}. You can keep working with features paused, or try your usual features for this session.`;
+    prompt.append(message);
+    choice = await new Promise(resolve => {
+      for (const [label, value] of [["Continue with features paused", "paused"], ["Try my features", "try"]]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.style.cssText = "margin:4px;padding:4px 8px;border:1px solid currentColor;border-radius:4px";
+        button.addEventListener("click", () => resolve(value));
+        prompt.append(button);
+      }
+      document.body.append(prompt);
+    });
+    prompt.remove();
+    try { sessionStorage.setItem(key, choice); } catch {}
+  }
+  return choice;
+}
+
+async function start() {
+  if (!looksLikeT3() || window.__t3tk || window.__t3tkStarting) return;
+  if (!window.desktopBridge && !/^t3code(-dev)?:$/.test(location.protocol)) return boot("web");
+  window.__t3tkStarting = true;
+  let timeout;
+  try {
+    const state = await Promise.race([
+      Promise.resolve().then(() => window.desktopBridge?.getUpdateState?.()).catch(() => null),
+      new Promise(resolve => { timeout = setTimeout(() => resolve(null), 2500); }),
+    ]);
+    const version = state?.currentVersion;
+    if (CHECKED_DESKTOP_VERSIONS.includes(version)) return boot("desktop", version);
+    const choice = await compatibilityChoice(version);
+    boot("desktop", version, choice === "paused");
+  } finally {
+    clearTimeout(timeout);
+    delete window.__t3tkStarting;
+  }
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => looksLikeT3() && boot(), { once: true });
-} else if (looksLikeT3()) {
-  boot();
+  document.addEventListener("DOMContentLoaded", start, { once: true });
+} else {
+  start();
 }
