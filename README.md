@@ -19,6 +19,43 @@ Download the ZIP for your setup from [GitHub Releases](https://github.com/PonkoK
 
 See [Browser setup](#browser-extension-web-app-and-t3-connect) for installation steps.
 
+## Screenshots
+
+Captured in T3 Code 0.1.12 with sample projects. Open any screenshot for the full-size image.
+
+### Image annotation
+
+Draw directly on an attachment and add notes before sending it back to the agent.
+
+[![The image annotation editor with a numbered box drawn around a conversion metric](assets/screenshots/image-annotation.png)](assets/screenshots/image-annotation.png)
+
+### Repository organizer
+
+Pin and reorder repositories in Thread Details. Hidden repositories can be restored from the same panel.
+
+<a href="assets/screenshots/repository-organizer.png"><img src="assets/screenshots/repository-organizer.png" width="536" alt="Repository organizer with two pinned repositories and two hidden repositories ready to restore"></a>
+
+<details>
+<summary>Project pins, keyboard switchers, and the Toolkit menu</summary>
+
+**Project pins** assign numbers for Ctrl+Shift+1–9 and control pinned project order.
+
+<a href="assets/screenshots/project-pinning.png"><img src="assets/screenshots/project-pinning.png" width="305" alt="Project picker with three numbered pins and drag handles"></a>
+
+**Favorite models** appear above the composer when you hold Ctrl+Alt (Ctrl+Option on macOS).
+
+<a href="assets/screenshots/model-switcher.png"><img src="assets/screenshots/model-switcher.png" width="500" alt="Favorite model switcher with three numbered models"></a>
+
+**Reasoning effort** can be selected in the carousel by holding Alt or Option.
+
+<a href="assets/screenshots/effort-switcher.png"><img src="assets/screenshots/effort-switcher.png" width="644" alt="Reasoning effort carousel with six levels from Low to Ultra"></a>
+
+**Toolkit menu** lists the available features and their switches.
+
+<a href="assets/screenshots/toolkit-menu.png"><img src="assets/screenshots/toolkit-menu.png" width="345" alt="Toolkit menu showing feature switches, the project thread limit, and telemetry settings"></a>
+
+</details>
+
 ## Features
 
 It adds features to the T3 Code web app (Chrome and Firefox extension) and the desktop app (launcher):
@@ -65,6 +102,8 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   dragging in the project picker. Unpinned projects keep T3 Code's own order; choose **Manual** project
   sorting in T3 Code's settings to stop those moving too. Rows are reordered on screen only, so arrow-key
   navigation in the sidebar still follows T3 Code's order.
+- **Project name colors.** Project names in the sidebar and new-thread heading use the color of the
+  project icon when it has one.
 - **Arrange Favorites.** In the model picker, open **Favorites**, then **Arrange Favorites**. Drag a row by
   its grip (⠿), or use the up/down buttons, to move models across providers, then click **Done**.
   While the arranged list shows, Ctrl+1–9 (Cmd on macOS) picks models in that order. The order saves as you move each
