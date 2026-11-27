@@ -1,12 +1,13 @@
 // Talks to the desktop launcher (desktop/launch.mjs), which exposes a private DevTools binding to
-// the app windows it started. On the web there's no launcher.
+// the app windows it started. Only the telemetry setting goes over it. On the web there's no launcher.
 
 const waiting = new Map();
 let nextId = 1;
 
 export const hasLauncher = () => typeof window.__t3tkLauncher === "function";
 
-export function askLauncher(request, timeout = 3000) {
+/** Sends {get: true} or {telemetryOff: boolean}; resolves with the launcher's telemetry state. */
+export function askLauncher(request) {
   if (!hasLauncher()) return Promise.reject(new Error("No desktop launcher."));
   window.__t3tkLauncherReply ??= (reply) => {
     const entry = waiting.get(reply?.id);
@@ -21,7 +22,7 @@ export function askLauncher(request, timeout = 3000) {
     const timer = setTimeout(() => {
       waiting.delete(id);
       reject(new Error("The launcher didn't answer."));
-    }, timeout);
+    }, 3000);
     waiting.set(id, { resolve, reject, timer });
     window.__t3tkLauncher(JSON.stringify({ id, ...request }));
   });

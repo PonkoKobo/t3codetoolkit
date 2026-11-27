@@ -1,7 +1,9 @@
 import { COMPACT_KEY, LIMIT_KEY, MAX_LIMIT, MIN_LIMIT, clampLimit, hiddenRows, menuChoice, parseCompact } from "../threadLimit.js";
+import { compactIcon, expandIcon } from "../icons.js";
 import { toast } from "../styles.js";
 
-// Right-click a sidebar project for Show more / Show less. An expanded project is either full (all
+// Show more / Show less is a browser sidebar button and a desktop context menu item.
+// An expanded project is either full (all
 // threads, upstream's view) or compact (only its first few threads; the count is set in the
 // toolkit menu). A collapsed project offers Show more, which expands it through upstream's own
 // header click. Compact is a toolkit state kept per client; upstream only knows expanded/collapsed.
@@ -14,7 +16,9 @@ import { toast } from "../styles.js";
 // so React's list is never changed.
 
 const FOLDER_LI = 'li[data-testid="sidebar-project-folder"]';
-const FOLDER = `${FOLDER_LI} button[data-sidebar-row^="folder:"]`;
+const FOLDER_BUTTON = 'button[data-sidebar-row^="folder:"][aria-expanded]';
+const FOLDER = `${FOLDER_LI} ${FOLDER_BUTTON}`;
+const WEB_CONTROL = "[data-t3tk-thread-visibility]";
 const ACTION = "t3tk-project-thread-visibility";
 const HIDDEN = "data-t3tk-thread-hidden";
 
@@ -23,6 +27,7 @@ let restore = null;
 let compact = null;
 let limit = null;
 let resync = () => {};
+let surface;
 
 function readStorage(key) {
   try {
@@ -109,7 +114,48 @@ function menuItem(button) {
     full: () => setCompact(key, false),
     compact: () => setCompact(key, true),
   }[action] ?? (() => button.click()); // expand / collapse: upstream's own header action
-  return { label, run };
+  return { label, action, run };
+}
+
+function syncWebControls() {
+  let found = false;
+  for (const folder of document.querySelectorAll(FOLDER_LI)) {
+    const header = folder.querySelector(FOLDER_BUTTON);
+    const newThread = folder.querySelector("button[data-sidebar-action-for]");
+    const item = header && menuItem(header);
+    let button = folder.querySelector(WEB_CONTROL);
+    if (!newThread || !item) {
+      button?.remove();
+      continue;
+    }
+    found = true;
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.dataset.t3tkThreadVisibility = "";
+      // Match the gallery action: a pointer press on the button is not a sidebar drag.
+      for (const type of ["pointerdown", "mousedown", "touchstart"]) {
+        button.addEventListener(type, (event) => event.stopPropagation());
+      }
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const currentHeader = folder.querySelector(FOLDER_BUTTON);
+        if (currentHeader) menuItem(currentHeader)?.run();
+      });
+    }
+    if (button.className !== newThread.className) button.className = newThread.className;
+    if (button.title !== item.label) button.title = item.label;
+    const project = header.textContent.trim();
+    const accessibleLabel = project ? `${item.label} · ${project}` : item.label;
+    if (button.getAttribute("aria-label") !== accessibleLabel) button.setAttribute("aria-label", accessibleLabel);
+    if (button.dataset.action !== item.action) {
+      button.dataset.action = item.action;
+      const isMore = item.action === "expand" || item.action === "full";
+      button.replaceChildren(isMore ? expandIcon() : compactIcon());
+    }
+    if (button.parentElement !== newThread.parentElement) newThread.before(button);
+  }
+  return found ? "ok" : "idle";
 }
 
 function install(menu) {
@@ -177,6 +223,20 @@ async function projectContextMenu(url) {
   return typeof menu?.show === "function" ? menu : null;
 }
 
+function syncDesktopMenu() {
+  if (restore) return "ok";
+  if (load || !document.querySelector(FOLDER)) return "idle";
+  const url = toastModuleUrl();
+  if (!url) return "idle";
+
+  const request = projectContextMenu(url);
+  load = request;
+  request.then((menu) => {
+    if (load === request && menu) restore = install(menu);
+  }).catch(() => {});
+  return "idle";
+}
+
 function settings() {
   const row = document.createElement("label");
   row.className = "t3tk-menu-row t3tk-menu-setting";
@@ -208,30 +268,22 @@ function settings() {
 
 export const projectThreadMenu = {
   id: "project-thread-menu",
-  title: "Right-click a project to show more or fewer threads",
+  title: "Show more or fewer threads in a sidebar project",
   surfaces: ["web", "desktop"],
   init(context) {
     resync = context.resync;
+    surface = context.surface;
   },
   settings,
   sync() {
     applyLimits();
-    if (restore) return "ok";
-    if (load || !document.querySelector(FOLDER)) return "idle";
-    const url = toastModuleUrl();
-    if (!url) return "idle";
-
-    const request = projectContextMenu(url);
-    load = request;
-    request.then((menu) => {
-      if (load === request && menu) restore = install(menu);
-    }).catch(() => {});
-    return "idle";
+    return __T3TK_EXTENSION__ || surface === "web" ? syncWebControls() : syncDesktopMenu();
   },
   stop() {
     load = null;
     restore?.();
     restore = null;
+    for (const button of document.querySelectorAll(WEB_CONTROL)) button.remove();
     for (const li of document.querySelectorAll(`[${HIDDEN}]`)) li.removeAttribute(HIDDEN);
   },
 };

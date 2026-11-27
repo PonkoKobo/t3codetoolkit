@@ -1,7 +1,8 @@
 import { findComposer } from "../composer.js";
 import { isOtherTextField } from "../effortKeys.js";
 import { findPropsUp } from "../react.js";
-import { ICONS, toast } from "../styles.js";
+import { compactIcon } from "../icons.js";
+import { toast } from "../styles.js";
 
 // ThreadDetailsContext renders ThreadDetailsSection with this id; it is a code constant, not copy.
 const CONTEXT_HEADING_ID = "thread-details-context-heading";
@@ -50,8 +51,20 @@ function build() {
   const row = document.createElement("div");
   row.className = "t3tk-compact-row";
   row.dataset[MARK] = "";
-  row.innerHTML = `<span class="t3tk-hint"></span><button type="button" class="t3tk-btn" aria-keyshortcuts="${COMPACT_SHORTCUT}">${ICONS.compact}<span>Compact</span><kbd aria-hidden="true">${COMPACT_SHORTCUT}</kbd></button>`;
-  row.querySelector("button").addEventListener("click", () => {
+  const hint = document.createElement("span");
+  hint.className = "t3tk-hint";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "t3tk-btn";
+  button.setAttribute("aria-keyshortcuts", COMPACT_SHORTCUT);
+  const label = document.createElement("span");
+  label.textContent = "Compact";
+  const key = document.createElement("kbd");
+  key.setAttribute("aria-hidden", "true");
+  key.textContent = COMPACT_SHORTCUT;
+  button.append(compactIcon(), label, key);
+  row.append(hint, button);
+  button.addEventListener("click", () => {
     const composer = findComposer();
     if (!composer || composer.props.compactDisabled) return;
     // Upstream's own handler: it re-checks every guard and sends "/compact".

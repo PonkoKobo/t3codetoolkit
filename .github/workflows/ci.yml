@@ -62,26 +62,23 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
-  release:
-    name: Publish GitHub release
+  prepare_release:
+    name: Prepare GitHub release
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
+    timeout-minutes: 30
+    outputs:
+      summary: ${{ steps.tag.outputs.summary }}
+      firefox_signed: ${{ steps.signing_config.outputs.enabled }}
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: release
-          path: release
-      - name: Publish with install downloads
+      - name: Validate release tag
+        id: tag
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
           tag_object=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq '.object | select(.type == "tag") | .sha')
           if [[ -z "$tag_object" ]]; then
             echo "::error::Use an annotated tag with a short user-facing release note."
@@ -92,20 +89,124 @@ jobs:
             echo "::error::Start the tag message with a short user-facing release note."
             exit 1
           fi
+          printf 'summary=%s\n' "$summary" >> "$GITHUB_OUTPUT"
+
+      - name: Check Mozilla credentials
+        id: signing_config
+        shell: bash
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [[ -z "$WEB_EXT_API_KEY" && -z "$WEB_EXT_API_SECRET" ]]; then
+            echo '::warning::Firefox signing skipped. Set AMO_JWT_ISSUER and AMO_JWT_SECRET to publish a signed XPI.'
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+          elif [[ -z "$WEB_EXT_API_KEY" || -z "$WEB_EXT_API_SECRET" ]]; then
+            echo '::error::Firefox signing needs both AMO_JWT_ISSUER and AMO_JWT_SECRET.'
+            exit 1
+          else
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.signing_config.outputs.enabled == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        if: steps.signing_config.outputs.enabled == 'true'
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        if: steps.signing_config.outputs.enabled == 'true'
+        with:
+          name: release
+          path: release
+      - name: Prepare Firefox submission
+        if: steps.signing_config.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          unzip -q "release/T3CodeToolkit-extension-firefox-$version.zip" -d "$RUNNER_TEMP/firefox-extension"
+          git archive --format=zip --output="$RUNNER_TEMP/firefox-source.zip" HEAD -- \
+            README.md LICENSE package.json package-lock.json install.cmd install.command install.sh \
+            assets desktop extension scripts src docs/FIREFOX_RELEASE.md
+          npm install --prefix "$RUNNER_TEMP/firefox-signing-tools" --no-audit --no-fund --no-save web-ext@10.8.0
+          "$RUNNER_TEMP/firefox-signing-tools/node_modules/.bin/web-ext" lint \
+            --source-dir "$RUNNER_TEMP/firefox-extension" --self-hosted
+      - name: Sign Firefox extension with Mozilla
+        if: steps.signing_config.outputs.enabled == 'true'
+        shell: bash
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          "$RUNNER_TEMP/firefox-signing-tools/node_modules/.bin/web-ext" sign \
+            --channel unlisted --source-dir "$RUNNER_TEMP/firefox-extension" \
+            --artifacts-dir "$RUNNER_TEMP/firefox-signed" \
+            --upload-source-code "$RUNNER_TEMP/firefox-source.zip" --approval-timeout 900000
+          shopt -s nullglob
+          files=("$RUNNER_TEMP/firefox-signed/"*.xpi)
+          if [[ ${#files[@]} -ne 1 ]]; then
+            echo '::error::Expected one signed Firefox XPI from Mozilla.'
+            exit 1
+          fi
+          mkdir signed
+          mv "${files[0]}" "signed/T3CodeToolkit-extension-firefox-$version.xpi"
+      - uses: actions/upload-artifact@v4
+        if: steps.signing_config.outputs.enabled == 'true'
+        with:
+          name: firefox-signed
+          path: signed/*.xpi
+          if-no-files-found: error
+          overwrite: true
+
+  release:
+    name: Publish GitHub release
+    needs: prepare_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release
+      - uses: actions/download-artifact@v4
+        if: needs.prepare_release.outputs.firefox_signed == 'true'
+        with:
+          name: firefox-signed
+          path: release
+      - name: Publish with install downloads
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SUMMARY: ${{ needs.prepare_release.outputs.summary }}
+          FIREFOX_SIGNED: ${{ needs.prepare_release.outputs.firefox_signed }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          firefox_asset="T3CodeToolkit-extension-firefox-$version"
+          firefox_notes='- **Firefox** — Select the Firefox ZIP with **Load Temporary Add-on** in `about:debugging#/runtime/this-firefox`. Repeat after each Firefox restart.'
+          firefox_downloads=("release/$firefox_asset.zip#Firefox extension (temporary install)")
+          if [[ "$FIREFOX_SIGNED" == true ]]; then
+            (cd release && sha256sum "$firefox_asset.xpi" >> SHA256SUMS.txt)
+            firefox_notes='- **Firefox** — Download the signed XPI. In `about:addons`, open the gear menu, select **Install Add-on From File**, and choose the XPI.'
+            firefox_downloads=("release/$firefox_asset.xpi#Firefox extension (signed install)" "${firefox_downloads[@]}")
+          fi
           install_notes=$(cat <<'EOF'
           ## Install
 
           - **Desktop** — Extract the desktop ZIP and run `install.cmd` on Windows, `install.command` on macOS, or `./install.sh` on Linux. Then start **T3 Code + Toolkit**.
           - **Chrome and Edge** — Download the ZIP labeled for your browser and extract it. In `chrome://extensions` or `edge://extensions`, enable Developer mode and use **Load unpacked** to select the extracted folder.
-          - **Firefox** — Download the Firefox ZIP and select it with **Load Temporary Add-on** in `about:debugging#/runtime/this-firefox`. Repeat after each Firefox restart.
-          - **Desktop updates** — Quit T3 Code, run the new installer, and use the same shortcut.
           EOF
           )
-          notes=$(printf "## What's new\n\n%s\n\n%s" "$summary" "$install_notes")
+          notes=$(printf "## What's new\n\n%s\n\n%s\n%s\n%s" "$RELEASE_SUMMARY" "$install_notes" "$firefox_notes" '- **Desktop updates** — Quit T3 Code, run the new installer, and use the same shortcut.')
           gh release create "$GITHUB_REF_NAME" \
             "release/T3CodeToolkit-$version.zip#Desktop installer (Windows, macOS, Linux)" \
             "release/T3CodeToolkit-extension-chrome-$version.zip#Chrome extension" \
             "release/T3CodeToolkit-extension-edge-$version.zip#Microsoft Edge extension" \
-            "release/T3CodeToolkit-extension-firefox-$version.zip#Firefox extension (temporary install)" \
+            "${firefox_downloads[@]}" \
             release/SHA256SUMS.txt \
             --verify-tag --title "T3CodeToolkit $version" --notes "$notes" --generate-notes

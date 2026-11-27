@@ -19,7 +19,7 @@ Download the ZIP for your setup from [GitHub Releases](https://github.com/PonkoK
   Linux and uses your existing T3 Code installation. [Desktop setup](#desktop-app)
 - **Chrome** — `T3CodeToolkit-extension-chrome-<version>.zip`
 - **Microsoft Edge** — `T3CodeToolkit-extension-edge-<version>.zip`
-- **Firefox** — `T3CodeToolkit-extension-firefox-<version>.zip`
+- **Firefox** — `T3CodeToolkit-extension-firefox-<version>.xpi` (signed)
 
 See [Browser setup](#browser-extension-web-app-and-t3-connect) for installation steps.
 
@@ -123,19 +123,11 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   tested in a live app yet. Newest first by default; sort by oldest, name, size or thread, filter
   by who sent it, or search by name or thread title. Click an image for **Open thread**, **Add to message**,
   **Annotate** or **Open full size**. It only reads; images whose files were deleted are hidden.
-- **Show more or fewer threads.** Right-click a project in the sidebar. **Show less** lists only its first
-  few threads (5 by default) and **Show more** lists them all again; on a collapsed project **Show more**
-  expands it. Set how many threads stay in the Toolkit menu, under this feature's switch. The open
+- **Show more or fewer threads.** In the browser, use the chevron button beside the project's **New thread**
+  button. On desktop, right-click the project. **Show less** lists only its first few threads (5 by default)
+  and **Show more** lists them all again or expands a collapsed project. Set how many threads stay in
+  the Toolkit menu, under this feature's switch. The open
   thread always stays visible. The choice is kept per project in the current browser or desktop profile.
-- **Antigravity quota commands.** From a project thread, click the sidebar's **Usage** chart icon and
-  choose **Open T3 Code terminal & copy agy**. Paste `agy` into the terminal and press Enter, then
-  enter `/usage` inside Antigravity to see
-  Gemini subscription quota and reset times for the Google account signed in there.
-  [Google's `/usage` guide](https://antigravity.google/docs/cli/commands/usage)
-  On a Windows Toolkit installation configured with `"antigravityQuota": true` in its `config.json`,
-  **Gemini quota** next to **Toolkit** runs one local CLI check per opening or refresh and displays the
-  returned quota. Google does not support third-party headless CLI integrations under consumer plans.
-  [Antigravity FAQ](https://antigravity.google/docs/faq/)
 - **Toolkit menu.** The **Toolkit** button (hammer icon) at the top right groups feature switches into
   sections across two columns. Narrow windows use a single column.
   Feature switches apply at once and are saved in the current browser or desktop profile. The **Privacy**
@@ -154,13 +146,11 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
 turn on Developer mode, click **Load unpacked** and pick the folder containing `manifest.json`
 (`extension` if building from source).
 
-**Firefox (128+)** — Open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and
-select the Firefox ZIP directly, or pick `manifest.json` if you already extracted it. Then in
-`about:addons` → T3CodeToolkit → Permissions, allow access to `app.t3.codes` if prompted. Repeat the
-temporary load after each Firefox restart. Permanent installation requires a signed Firefox add-on.
+**Firefox (142+)** — Download the signed XPI from GitHub Releases. Open `about:addons`, choose **Install Add-on From File** from the gear menu, and select the XPI. Use the same steps with the newer XPI to update.
 
-For Chrome or Edge updates, replace the files in the same unpacked folder and click **Reload** on the
-extension card. Refresh any open T3 Code tabs. In Firefox, remove the temporary add-on and load the new ZIP.
+For temporary testing, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and select the Firefox ZIP.
+
+For Chrome or Edge updates, replace the files in the same unpacked folder and click **Reload** on the extension card. Refresh open T3 Code tabs.
 
 It runs on `https://app.t3.codes` by default, which is also where remote sessions (T3 Connect) open. To use it
 with a local `t3` server or another host, click the toolbar icon and add that address; the browser asks for

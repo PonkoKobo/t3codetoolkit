@@ -7,7 +7,8 @@ import { addToComposer, findComposer } from "../composer.js";
 import { arrangeImages, imagesFromRows, projectThreads, SORTS } from "../galleryData.js";
 import { homeHref } from "../projectKeys.js";
 import { findPropsUp } from "../react.js";
-import { ICONS, toast } from "../styles.js";
+import { galleryIcon } from "../icons.js";
+import { toast } from "../styles.js";
 
 const PROTOCOL = "2";
 const SCAN_CONCURRENCY = 3;
@@ -286,7 +287,7 @@ function showGallery(group) {
     el(
       "div",
       { className: "t3tk-gallery-bar" },
-      el("strong", { className: "t3tk-gallery-title" }, ICONS_SPAN(), `Images · ${group.displayName ?? group.title ?? "Project"}`),
+      el("strong", { className: "t3tk-gallery-title" }, el("span", { className: "t3tk-gallery-icon" }, galleryIcon()), `Images · ${group.displayName ?? group.title ?? "Project"}`),
       search,
       sort,
       from,
@@ -508,13 +509,6 @@ function placeTiles(grid, tiles) {
   }
 }
 
-const ICONS_SPAN = () => {
-  const span = document.createElement("span");
-  span.className = "t3tk-gallery-icon";
-  span.innerHTML = ICONS.gallery;
-  return span;
-};
-
 async function scan(group, state, signal, scheduleRender, render) {
   const conn = await connection();
   if (signal.aborted) return;
@@ -592,7 +586,7 @@ export const imageGallery = {
       const title = (newThread.getAttribute("aria-label") ?? "").replace(/^New thread in\s*/i, "") || "this project";
       button.setAttribute("aria-label", `Images in ${title}`);
       button.title = `Images in ${title}`;
-      button.innerHTML = ICONS.gallery;
+      button.append(galleryIcon());
       // The sidebar's drag sensors listen for pointer presses; keep this click from starting a drag.
       for (const type of ["pointerdown", "mousedown", "touchstart"]) button.addEventListener(type, (e) => e.stopPropagation());
       button.addEventListener("click", (event) => {

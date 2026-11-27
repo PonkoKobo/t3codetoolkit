@@ -26,8 +26,8 @@ function pasteInto(editor, fill) {
   const data = new DataTransfer();
   fill(data);
   const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
-  // Some engines drop clipboardData from the constructor; the composer then sees nothing.
-  if (!event.clipboardData) return false;
+  // Firefox can expose an empty DataTransfer instead of the one supplied to the constructor.
+  if (event.clipboardData !== data && !Reflect.defineProperty(event, "clipboardData", { value: data })) return false;
   editor.dispatchEvent(event);
   return true;
 }

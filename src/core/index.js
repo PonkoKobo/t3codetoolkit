@@ -9,16 +9,16 @@ import { projectColors } from "./features/projectColors.js";
 import { threadRepositoryOverflow } from "./features/threadRepositoryOverflow.js";
 import { projectThreadMenu } from "./features/projectThreadMenu.js";
 import { sidebarProjectOrder } from "./features/sidebarProjectOrder.js";
-import { antigravityUsage } from "./features/antigravityUsage.js";
 import { closeAllAnnotators } from "./annotate/editor.js";
-import { CSS, ICONS, toast } from "./styles.js";
+import { CSS, toast } from "./styles.js";
+import { hammerIcon } from "./icons.js";
 import { askLauncher, hasLauncher } from "./launcher.js";
 
 const VERSION = __T3TK_VERSION__;
 // null for a clean build of the release tag; otherwise which GitHub release this build follows.
 const BUILD = __T3TK_BUILD__;
 const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
-const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu, antigravityUsage];
+const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
 const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
@@ -33,7 +33,6 @@ const MENU_COLUMNS = [
       [effortShortcuts, "Reasoning effort shortcuts", "Alt/Option + 1–6", "Hold or scroll for levels"],
       [modelSwitcher, "Favorite model shortcuts", "Ctrl+Alt + 1–9", "Hold for favorites"],
       [arrangeFavorites, "Arrange Favorites"],
-      [antigravityUsage, "Antigravity quota commands", null, "In Usage"],
     ]],
   ],
   [
@@ -41,7 +40,7 @@ const MENU_COLUMNS = [
       [projectSwitcher, "Open a thread in a pinned project", "Ctrl+Shift + 1–9", "Hold for projects"],
       [sidebarProjectOrder, "Match sidebar order to pinned shortcuts"],
       [projectColors, "Colour project names by icon"],
-      [projectThreadMenu, "Project Show more / Show less", null, "Right-click a project"],
+      [projectThreadMenu, "Project Show more / Show less", null, "In the sidebar"],
     ]],
     ["Thread Details", [[threadRepositoryOverflow, "Repository organizer & expansion"]]],
     ["Privacy"],
@@ -104,6 +103,7 @@ function boot(surface, hostVersion, paused = false) {
 
   let timer = 0;
   let stopped = false;
+  let menuButton = null;
   let menu = null;
 
   function setEnabled(id, on) {
@@ -304,25 +304,33 @@ function boot(surface, hostVersion, paused = false) {
   }
 
   function syncMenuButton() {
-    const slots = [...document.querySelectorAll("[data-workspace-titlebar-controls]")];
-    const needsFallback = paused && slots.length === 0;
-    if (needsFallback) slots.push(document.body);
-    else document.querySelector("[data-t3tk-status-fallback]")?.remove();
-    for (const controls of slots) {
-      if (controls.querySelector(":scope > [data-t3tk-loaded]")) continue;
+    const slots = [...document.querySelectorAll("[data-workspace-titlebar-controls]")]
+      .filter((slot) => slot.getClientRects().length > 0);
+    // The split layout also mounts a chat toolbar without the right-panel toggle.
+    const controls = slots.find((slot) => slot.querySelector("[data-right-panel-toggle]")) ?? slots[0];
+    const target = controls ?? (paused ? document.body : null);
+    if (target && menuButton?.parentElement === target) return;
+    closeMenu();
+    if (!target) {
+      menuButton?.remove();
+      return;
+    }
+    if (!menuButton) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "t3tk-loaded";
       button.dataset.t3tkLoaded = "";
-      if (needsFallback) button.dataset.t3tkStatusFallback = "";
       button.title = paused ? "Toolkit features are disabled for this session" : `T3CodeToolkit ${LABEL}: turn features on or off`;
       button.setAttribute("aria-haspopup", "dialog");
       button.setAttribute("aria-expanded", "false");
-      button.innerHTML = `${ICONS.hammer}<span>${paused ? "Toolkit disabled" : "Toolkit"}</span>`;
+      const label = document.createElement("span");
+      label.textContent = paused ? "Toolkit disabled" : "Toolkit";
+      button.append(hammerIcon(), label);
       button.addEventListener("click", () => toggleMenu(button));
-      controls.prepend(button);
+      menuButton = button;
     }
-    if (menu && !menu.button.isConnected) closeMenu();
+    menuButton.toggleAttribute("data-t3tk-status-fallback", !controls);
+    target.prepend(menuButton);
   }
 
   const sync = () => {
@@ -351,7 +359,7 @@ function boot(surface, hostVersion, paused = false) {
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state", "aria-current", "aria-expanded"] });
   for (const feature of paused ? [] : available) {
     try {
-      feature.init?.({ resync: schedule });
+      feature.init?.({ resync: schedule, surface });
     } catch (error) {
       active.delete(feature);
       health[feature.id] = "broken";

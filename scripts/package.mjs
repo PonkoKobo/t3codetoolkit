@@ -105,7 +105,6 @@ const desktop = [
   "scripts/telemetry.cmd",
   "scripts/telemetry.sh",
   "desktop/find-app.mjs",
-  "desktop/antigravity-quota.mjs",
   "desktop/install.mjs",
   "desktop/launch.mjs",
   "desktop/splash.mjs",

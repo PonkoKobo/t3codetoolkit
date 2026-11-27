@@ -1,5 +1,5 @@
 import { isOtherTextField } from "../effortKeys.js";
-import { effectiveOrder } from "../favoriteOrder.js";
+import { decodeModelKey, effectiveOrder } from "../favoriteOrder.js";
 import { cycle, favoriteSlots, isModifierKey, modelSlotFromKey, switcherChordHeld } from "../modelKeys.js";
 import { PICKER, clearSilent, composerHandle, inPicker, pickerBusy, waitFor, withPicker } from "../pickerDriver.js";
 import { toast } from "../styles.js";
@@ -34,7 +34,17 @@ const openPicker = (handle) => handle.toggleModelPicker();
 async function readFavorites(found) {
   return withPicker(found, openPicker, async () => {
     const context = await favoritesContext();
-    return context ? slotsOf(context) : null;
+    if (!context) return null;
+    // Provider tabs are all mounted, even when the model rows are virtualized.
+    const icons = new Map();
+    for (const tab of context.picker.querySelectorAll("[data-model-picker-provider]")) {
+      const icon = tab.querySelector("button")?.firstElementChild;
+      if (icon) icons.set(tab.dataset.modelPickerProvider, icon);
+    }
+    return slotsOf(context).map((entry) => ({
+      ...entry,
+      icon: icons.get(decodeModelKey(entry.key)?.instanceId)?.cloneNode(true),
+    }));
   });
 }
 
@@ -85,7 +95,15 @@ function renderCarousel() {
       name.textContent = entry.name;
       const provider = document.createElement("small");
       provider.textContent = entry.selected ? `${entry.provider} · current` : entry.provider;
-      item.append(key, name, provider);
+      item.append(key);
+      if (entry.icon) {
+        const logo = document.createElement("div");
+        logo.className = "t3tk-model-icon";
+        logo.setAttribute("aria-hidden", "true");
+        logo.append(entry.icon);
+        item.append(logo);
+      }
+      item.append(name, provider);
       item.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         commit(entry.key, e);

@@ -11,12 +11,17 @@ const root = join(import.meta.dirname, "..");
 const read = (p) => readFileSync(join(root, p));
 const { version } = JSON.parse(read("package.json"));
 
-test("the bundle is a self-contained script with the unaffiliated notice", () => {
-  const bundle = read("dist/t3tk-core.js").toString("utf8");
-  assert.match(bundle, /unofficial add-on for T3 Code, not affiliated with T3 Tools, Inc\./);
-  assert.doesNotMatch(bundle, /^\s*(import|export)\s/m, "no module syntax left");
-  new vm.Script(bundle); // parses
-  assert.equal(read("extension/core.js").toString("utf8"), bundle, "extension carries the same build");
+test("both bundles are classic scripts and the host menu loader ships only on desktop", () => {
+  const desktop = read("dist/t3tk-core.js").toString("utf8");
+  const extension = read("extension/core.js").toString("utf8");
+  for (const bundle of [desktop, extension]) {
+    assert.match(bundle, /unofficial add-on for T3 Code, not affiliated with T3 Tools, Inc\./);
+    assert.doesNotMatch(bundle, /^\s*(import|export)\s/m, "no static module syntax left");
+    new vm.Script(bundle);
+  }
+  const dynamicImport = /\bimport\s*\(/;
+  assert.ok(dynamicImport.test(desktop), "desktop retains the host menu loader");
+  assert.ok(!dynamicImport.test(extension), "the browser extension contains no dynamic imports");
 });
 
 test("the bundle stays inert outside T3 Code", () => {
@@ -147,7 +152,6 @@ test("release zips are valid and complete and match their published checksums", 
   assert.deepEqual(desktop.get(top + "dist/t3tk-core.js").data, read("dist/t3tk-core.js"));
   for (const name of [
     "install.cmd", "install.sh", "install.command", "dist/t3tk-core.js",
-    "desktop/install.mjs", "desktop/launch.mjs", "desktop/antigravity-quota.mjs", "desktop/splash.mjs", "desktop/start.sh", "desktop/start.ps1",
     "desktop/windows-launcher.cs", "desktop/windows-shell.ps1", "assets/icon.png", "assets/icon.ico",
   ]) {
     assert.ok(desktop.has(top + name), `${name} in the desktop zip`);

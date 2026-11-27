@@ -88,8 +88,8 @@ Inspect the new T3 Code renderer bundle / upstream source for every hook below, 
   - **Check:** Sidebar project names and draft project heading pick up readable colours from SVG/image icons and revert cleanly when disabled.
 
 - [ ] **10. Project Show more / Show less (thread limit)** (`project-thread-menu` — `src/core/features/projectThreadMenu.js`)
-  - **Hooks:** `li[data-testid="sidebar-project-folder"] button[data-sidebar-row^="folder:"]`, `[data-sidebar-parent^="folder:"]`, `[aria-current]`, UI API `contextMenu.show` (discovered via toast module URL).
-  - **Check:** Right-clicking a project folder shows **Show more** / **Show less**, hides rows past the configured limit while keeping the active thread visible, nested rows hide with their parent, Toolkit menu limit input persists.
+  - **Hooks:** Sidebar folder button, `[data-sidebar-parent^="folder:"]`, `[aria-current]`, desktop UI API `contextMenu.show` (discovered via toast module URL), and web `button[data-sidebar-action-for]` for placing the control.
+  - **Check:** Use the web project-row chevrons or the desktop project context menu. Verify **Show more** / **Show less**, the configured limit, active-thread visibility, nested rows hiding with their parent, and persistence of the limit.
 
 ### Thread Details (Version-Gated)
 
@@ -137,5 +137,5 @@ CI (`.github/workflows/ci.yml`) enforces that any version bump pushed to `main` 
   git tag -a vX.Y.Z -m "Support T3 Code <host-version> and <short summary>"
   ```
 - [ ] Push `main` and the tag together (`git push --atomic origin main vX.Y.Z`).
-- [ ] Confirm all CI jobs pass (`ubuntu-latest`, `windows-latest`, `macos-latest`) and `Publish GitHub release` uploads all 4 ZIPs (Desktop, Chrome, Edge, Firefox) + `SHA256SUMS.txt`.
+- [ ] Confirm all CI jobs pass (`ubuntu-latest`, `windows-latest`, `macos-latest`) and `Publish GitHub release` uploads the four ZIPs (desktop, Chrome, Edge, and Firefox), the signed Firefox XPI, and `SHA256SUMS.txt`.
 - [ ] **If installing locally for the user:** Install from the verified release ZIP (keeping the user's shortcut and `telemetryOff` setting) and remind the user to quit T3 Code and reopen **T3 Code + Toolkit**.

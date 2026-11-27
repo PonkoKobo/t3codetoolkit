@@ -1,4 +1,5 @@
 import { addToComposer, findComposer } from "../composer.js";
+import { svgIcon } from "../icons.js";
 import { toast } from "../styles.js";
 
 const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#ffffff"];
@@ -65,6 +66,8 @@ function drawArrow(ctx, a, b, width) {
   ctx.fill();
 }
 
+const badgeTextColor = (color) => color === "#ffffff" || color === "#ffcc00" ? "#111" : "#fff";
+
 function drawBadge(ctx, p, n, color, size) {
   const r = size;
   ctx.beginPath();
@@ -74,7 +77,7 @@ function drawBadge(ctx, p, n, color, size) {
   ctx.lineWidth = Math.max(1, r / 7);
   ctx.strokeStyle = "rgba(0,0,0,.65)";
   ctx.stroke();
-  ctx.fillStyle = color === "#ffffff" || color === "#ffcc00" ? "#111" : "#fff";
+  ctx.fillStyle = badgeTextColor(color);
   ctx.font = `600 ${Math.round(r * 1.15)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -94,7 +97,7 @@ export function closeAllAnnotators() {
   for (const dispose of [...live]) dispose();
 }
 
-export async function openAnnotator({ src, name }, beforeOpen) {
+export async function openAnnotator({ src, name }, beforeOpen, { loadTimeout } = {}) {
   // Bind to the draft that was open when annotation started, not whichever is open at send time.
   const target = findComposer()?.editor ?? null;
   const returnFocus = document.activeElement;
@@ -102,13 +105,21 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   const cancelLoad = () => (cancelled = true);
   live.add(cancelLoad);
   let img;
+  let loadTimer;
   try {
-    img = await loadImage(src);
+    const loading = loadImage(src);
+    img = loadTimeout ? await Promise.race([
+      loading,
+      new Promise((_, reject) => {
+        loadTimer = setTimeout(() => reject(new Error("image load timed out")), loadTimeout);
+      }),
+    ]) : await loading;
     if (cancelled || (beforeOpen && !(await beforeOpen()))) return;
   } catch {
     if (!cancelled) toast("Couldn't open this image for annotation.");
     return;
   } finally {
+    clearTimeout(loadTimer);
     live.delete(cancelLoad);
   }
   if (cancelled) return;
@@ -139,7 +150,7 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   root.innerHTML = `
     <div class="t3tk-annotate-bar">
       <span class="t3tk-annotate-title"></span>
-      <span class="t3tk-hint">Point an arrow, then say what should change. Click a number to edit its note. Ctrl+scroll zooms; Ctrl+Alt+←/→ switches tools.</span>
+      <span class="t3tk-hint">Click a number on the image or in Describe edits to edit its note. Ctrl+scroll zooms; Ctrl+Alt+←/→ switches tools.</span>
       <button type="button" class="t3tk-btn" data-act="copy" title="Copy the annotated image">Copy image</button>
       <button type="button" class="t3tk-btn" data-act="cancel" title="Close (Esc)">Cancel</button>
     </div>
@@ -147,12 +158,8 @@ export async function openAnnotator({ src, name }, beforeOpen) {
       <div class="t3tk-board"><canvas tabindex="-1" aria-label="Drawing area"></canvas></div>
       <div class="t3tk-annotate-dock">
         <div class="t3tk-annotate-tools">
-          <div role="group" aria-label="Annotation tools">
-            ${TOOLS.map(({ id, label, key, path }) => `<button type="button" class="t3tk-btn" data-tool="${id}" title="${label} (${key.toUpperCase()})"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>${label}</button>`).join("")}
-          </div>
-          <div role="group" aria-label="Ink colors">
-            ${COLORS.map((c) => `<button type="button" class="t3tk-swatch" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join("")}
-          </div>
+          <div role="group" aria-label="Annotation tools" data-tool-group></div>
+          <div role="group" aria-label="Ink colors" data-color-group></div>
           <div role="group" aria-label="Edit marks">
             <button type="button" class="t3tk-btn" data-act="undo" title="Undo (Ctrl/⌘+Z)" aria-keyshortcuts="Control+Z Meta+Z" disabled>Undo</button>
             <button type="button" class="t3tk-btn" data-act="redo" title="Redo (Ctrl+Y or Ctrl/⌘+Shift+Z)" aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z" disabled>Redo</button>
@@ -165,18 +172,41 @@ export async function openAnnotator({ src, name }, beforeOpen) {
           </div>
         </div>
         <div class="t3tk-annotate-composer">
-          <textarea data-overall rows="1" aria-label="Overall note" placeholder="Describe edits (optional)"></textarea>
-          <button type="button" class="t3tk-send" data-act="send" title="Add to message (Ctrl/⌘+Enter)" aria-label="Add to message" aria-keyshortcuts="Control+Enter Meta+Enter"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          <ul class="t3tk-mark-notes" aria-label="Numbered edits" hidden></ul>
+          <div class="t3tk-annotate-message">
+            <textarea data-overall rows="1" aria-label="Overall note" placeholder="Describe edits (optional)"></textarea>
+            <button type="button" class="t3tk-send" data-act="send" title="Add to message (Ctrl/⌘+Enter)" aria-label="Add to message" aria-keyshortcuts="Control+Enter Meta+Enter"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          </div>
         </div>
       </div>
     </div>
     <div class="t3tk-pop" role="group" hidden>
-      <span class="t3tk-pop-num" aria-hidden="true"></span>
+      <span class="t3tk-mark-number" aria-hidden="true"></span>
       <textarea rows="2" placeholder="What should change here?"></textarea>
       <button type="button" data-pop-remove title="Delete this mark">×</button>
     </div>
     <div class="t3tk-annotate-dismiss" role="status"></div>`;
   root.querySelector(".t3tk-annotate-title").textContent = name;
+  const tools = root.querySelector("[data-tool-group]");
+  for (const { id, label, key, path } of TOOLS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "t3tk-btn";
+    button.dataset.tool = id;
+    button.title = `${label} (${key.toUpperCase()})`;
+    button.append(svgIcon([path]), label);
+    tools.append(button);
+  }
+  const colors = root.querySelector("[data-color-group]");
+  for (const color of COLORS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "t3tk-swatch";
+    button.dataset.color = color;
+    button.style.background = color;
+    button.setAttribute("aria-label", `Color ${color}`);
+    colors.append(button);
+  }
 
   const canvas = root.querySelector("canvas");
   canvas.width = boardWidth;
@@ -187,9 +217,10 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   const board = root.querySelector(".t3tk-board");
   const stage = root.querySelector(".t3tk-stage");
   const dismissHint = root.querySelector(".t3tk-annotate-dismiss");
+  const notes = root.querySelector(".t3tk-mark-notes");
   const overall = root.querySelector("[data-overall]");
   const pop = root.querySelector(".t3tk-pop");
-  const popNum = pop.querySelector(".t3tk-pop-num");
+  const popNum = pop.querySelector(".t3tk-mark-number");
   const popText = pop.querySelector("textarea");
   let noteOpen = false;
 
@@ -243,7 +274,7 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     paint();
   }
 
-  /** Put the note bubble beside the selected mark's number, kept inside the window. */
+  /** Keep the note by its mark and above the annotation controls. */
   function placeNote() {
     if (pop.hidden || !selected) return;
     const r = canvas.getBoundingClientRect();
@@ -257,26 +288,31 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     let x = cx + gap;
     if (x + w > window.innerWidth - 8) x = cx - gap - w;
     x = Math.min(window.innerWidth - w - 8, Math.max(8, x));
-    const y = Math.min(window.innerHeight - h - 8, Math.max(8, cy - 18));
+    const boardRect = board.getBoundingClientRect();
+    const top = Math.max(8, boardRect.top);
+    const bottom = Math.min(window.innerHeight - 8, boardRect.bottom);
+    const y = Math.max(top, Math.min(bottom - h, cy - 18));
     pop.style.left = `${Math.round(x)}px`;
     pop.style.top = `${Math.round(y)}px`;
   }
 
   /** Show the note bubble for the selected mark, or hide it when there is none. */
   function syncNote({ focus = false } = {}) {
+    notes.querySelector('[aria-expanded="true"]')?.setAttribute("aria-expanded", "false");
     const index = shapes.indexOf(selected);
     if (!noteOpen || index < 0) {
       noteOpen = false;
       pop.hidden = true;
       return;
     }
-    popNum.textContent = String(index + 1);
-    popNum.style.background = selected.color;
-    popNum.style.color = selected.color === "#ffffff" || selected.color === "#ffcc00" ? "#111" : "#fff";
+    const row = notes.children[index].firstElementChild;
+    row.setAttribute("aria-expanded", "true");
+    updateNumber(popNum, index, selected.color);
     if (popText.value !== selected.note) popText.value = selected.note;
     popText.setAttribute("aria-label", `Note for mark ${index + 1}`);
     pop.querySelector("[data-pop-remove]").setAttribute("aria-label", `Delete mark ${index + 1}`);
     pop.hidden = false;
+    if (focus) row.scrollIntoView({ block: "nearest", inline: "nearest" });
     placeNote();
     if (focus) popText.focus({ preventScroll: true });
   }
@@ -284,7 +320,6 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   function openNote(mark) {
     selectMark(mark);
     noteOpen = true;
-    popText.value = mark.note;
     syncNote({ focus: true });
   }
 
@@ -295,14 +330,48 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   }
 
   popText.addEventListener("input", () => {
-    if (selected) selected.note = popText.value;
+    if (!selected) return;
+    selected.note = popText.value;
+    const row = notes.children[shapes.indexOf(selected)].firstElementChild;
+    updateNotePreview(row.lastElementChild, selected.note);
+    placeNote();
   });
+  overall.addEventListener("input", placeNote);
   pop.querySelector("[data-pop-remove]").addEventListener("click", () => removeMark(selected));
 
-  function renderList() {
+  function updateNumber(number, index, color) {
+    number.textContent = String(index + 1);
+    number.style.background = color;
+    number.style.color = badgeTextColor(color);
+  }
+
+  function updateNotePreview(preview, note) {
+    const text = note.trim();
+    preview.textContent = text || "Add note";
+    preview.toggleAttribute("data-empty", !text);
+  }
+
+  function syncMarks() {
     root.querySelector("[data-act='undo']").disabled = undoStack.length === 0;
     root.querySelector("[data-act='redo']").disabled = redoStack.length === 0;
     root.querySelector("[data-act='clear']").disabled = shapes.length === 0;
+    notes.hidden = shapes.length === 0;
+    notes.replaceChildren(...shapes.map((mark, index) => {
+      const item = document.createElement("li");
+      const row = document.createElement("button");
+      row.type = "button";
+      row.setAttribute("aria-expanded", "false");
+      const number = document.createElement("span");
+      number.className = "t3tk-mark-number";
+      updateNumber(number, index, mark.color);
+      const preview = document.createElement("span");
+      preview.className = "t3tk-mark-preview";
+      updateNotePreview(preview, mark.note);
+      row.append(number, preview);
+      row.addEventListener("click", () => openNote(mark));
+      item.append(row);
+      return item;
+    }));
     syncNote();
   }
 
@@ -312,7 +381,7 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     shapes = next;
     selected = selection;
     paint();
-    renderList();
+    syncMarks();
   }
 
   function removeMark(mark) {
@@ -328,7 +397,7 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     to.push({ shapes, selected });
     ({ shapes, selected } = state);
     paint();
-    renderList();
+    syncMarks();
     canvas.focus({ preventScroll: true });
   }
 

@@ -72,7 +72,7 @@ test("the desktop renderer discovers the preloaded toast module without resource
   ], [])), toast);
 });
 
-test("the web renderer still finds the toast module through resource timing", () => {
-  const toast = "https://example.test/assets/toast-abc123.js";
-  assert.equal(toastModuleUrl(renderer("https://example.test/", [], [toast])), toast);
+test("the desktop lookup falls back to resource timing when there is no preload link", () => {
+  const toast = "t3code://app/assets/toast-abc123.js";
+  assert.equal(toastModuleUrl(renderer("t3code://app/", [], [toast])), toast);
 });
