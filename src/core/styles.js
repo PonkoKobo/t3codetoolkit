@@ -252,11 +252,16 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 .t3tk-annotate-tools .t3tk-btn[aria-pressed="true"] { background: #373b46; border-color: #777d87; }
 .t3tk-swatch { width: 16px; height: 16px; margin: 0 2px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; }
 .t3tk-swatch:is([aria-pressed="true"], :focus-visible) { outline: 1px solid #fff; outline-offset: 2px; }
-.t3tk-toast {
+.t3tk-toast, .t3tk-annotate-dismiss {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483001;
   background: #222; color: #eee; padding: 8px 14px; border-radius: 8px; font: 13px system-ui, sans-serif;
   box-shadow: 0 6px 24px rgb(0 0 0 / 40%);
 }
+.t3tk-annotate-dismiss {
+  top: calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 0px) + 46px);
+  bottom: auto; pointer-events: none;
+}
+.t3tk-annotate-dismiss:empty { opacity: 0; }
 /* While the row's hover icons show, end the project name before them instead of under them. */
 li[data-testid="sidebar-project-folder"]:has([data-t3tk-gallery-open]):is(:hover, :focus-within) [data-sidebar-row] .truncate { margin-right: 46px; }
 .t3tk-gallery {

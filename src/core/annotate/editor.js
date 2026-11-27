@@ -2,6 +2,8 @@ import { addToComposer, findComposer } from "../composer.js";
 import { toast } from "../styles.js";
 
 const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#ffffff"];
+const DISMISS_WINDOW_MS = 2000;
+const CLICK_SLOP_PX = 6;
 const TOOLS = [
   { id: "arrow", label: "Arrow", key: "a", path: "M5 19 19 5m-8 0h8v8" },
   { id: "pen", label: "Markup", key: "p", path: "M3 16c5-7 8-11 10-11 4 0-5 11-5 14 0 2 7-7 10-7 2 0 0 3 1 4 1 1 2 0 3-1" },
@@ -172,7 +174,8 @@ export async function openAnnotator({ src, name }, beforeOpen) {
       <span class="t3tk-pop-num" aria-hidden="true"></span>
       <textarea rows="2" placeholder="What should change here?"></textarea>
       <button type="button" data-pop-remove title="Delete this mark">×</button>
-    </div>`;
+    </div>
+    <div class="t3tk-annotate-dismiss" role="status"></div>`;
   root.querySelector(".t3tk-annotate-title").textContent = name;
 
   const canvas = root.querySelector("canvas");
@@ -181,6 +184,9 @@ export async function openAnnotator({ src, name }, beforeOpen) {
   canvas.style.setProperty("--board-width", `${boardWidth}px`);
   canvas.style.setProperty("--board-ratio", boardWidth / boardHeight);
   const ctx = canvas.getContext("2d");
+  const board = root.querySelector(".t3tk-board");
+  const stage = root.querySelector(".t3tk-stage");
+  const dismissHint = root.querySelector(".t3tk-annotate-dismiss");
   const overall = root.querySelector("[data-overall]");
   const pop = root.querySelector(".t3tk-pop");
   const popNum = pop.querySelector(".t3tk-pop-num");
@@ -326,7 +332,6 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     canvas.focus({ preventScroll: true });
   }
 
-  const board = root.querySelector(".t3tk-board");
   const fitButton = root.querySelector("[data-act='zoom-fit']");
   /** Zoom to `next`, keeping the image point under (clientX, clientY) where it is. */
   function setZoom(next, clientX, clientY) {
@@ -506,9 +511,21 @@ export async function openAnnotator({ src, name }, beforeOpen) {
 
   let closed = false;
   let sending = false;
+  let backdropPress;
+  let dismissTimer;
+  const isBackdrop = (element) => element === root || element === stage || element === board;
+
+  function resetDismiss() {
+    if (dismissTimer === undefined) return;
+    clearTimeout(dismissTimer);
+    dismissTimer = undefined;
+    dismissHint.textContent = "";
+  }
+
   const close = ({ restoreFocus = true } = {}) => {
     if (closed) return;
     closed = true;
+    resetDismiss();
     live.delete(close);
     root.remove();
     window.removeEventListener("keydown", onKey, true);
@@ -581,7 +598,31 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     }
   }
 
+  root.addEventListener("pointerdown", (e) => {
+    if (!e.isPrimary || e.button !== 0) return;
+    backdropPress = isBackdrop(e.target) ? { x: e.clientX, y: e.clientY } : undefined;
+    if (!backdropPress) resetDismiss();
+  }, true);
+  root.addEventListener("pointercancel", () => {
+    backdropPress = undefined;
+    resetDismiss();
+  });
+  root.addEventListener("wheel", resetDismiss, { passive: true });
   root.addEventListener("click", (e) => {
+    const press = backdropPress;
+    backdropPress = undefined;
+    if (isBackdrop(e.target)) {
+      e.stopPropagation();
+      if (!sending && !drawing && press && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= CLICK_SLOP_PX) {
+        if (dismissTimer !== undefined) close();
+        else {
+          dismissHint.textContent = "Click outside again to close";
+          dismissTimer = setTimeout(resetDismiss, DISMISS_WINDOW_MS);
+        }
+      } else resetDismiss();
+      return;
+    }
+    resetDismiss();
     const target = e.target.closest("button");
     if (!target) return;
     if (target.dataset.tool) selectTool(target.dataset.tool);
@@ -593,6 +634,7 @@ export async function openAnnotator({ src, name }, beforeOpen) {
     // Only keys aimed at the overlay (or at nothing in particular) belong to it.
     if (!(e.target === window || e.target === document.body || e.target === document.documentElement || root.contains(e.target))) return;
     const typing = e.target instanceof HTMLTextAreaElement;
+    resetDismiss();
     e.stopPropagation();
     if (e.isComposing) return;
     const key = e.key.toLowerCase();

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "T3CodeToolkit (unofficial)",
   "short_name": "T3CodeToolkit",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Unofficial add-on for T3 Code: compact button, image annotation and more. Not affiliated with or endorsed by T3 Tools, Inc.",
   "icons": { "128": "icon-128.png" },
   "permissions": ["scripting", "storage"],
