@@ -127,6 +127,15 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   few threads (5 by default) and **Show more** lists them all again; on a collapsed project **Show more**
   expands it. Set how many threads stay in the Toolkit menu, under this feature's switch. The open
   thread always stays visible. The choice is kept per project in the current browser or desktop profile.
+- **Antigravity quota commands.** From a project thread, click the sidebar's **Usage** chart icon and
+  choose **Open T3 Code terminal & copy agy**. Paste `agy` into the terminal and press Enter, then
+  enter `/usage` inside Antigravity to see
+  Gemini subscription quota and reset times for the Google account signed in there.
+  [Google's `/usage` guide](https://antigravity.google/docs/cli/commands/usage)
+  On a Windows Toolkit installation configured with `"antigravityQuota": true` in its `config.json`,
+  **Gemini quota** next to **Toolkit** runs one local CLI check per opening or refresh and displays the
+  returned quota. Google does not support third-party headless CLI integrations under consumer plans.
+  [Antigravity FAQ](https://antigravity.google/docs/faq/)
 - **Toolkit menu.** The **Toolkit** button (hammer icon) at the top right groups feature switches into
   sections across two columns. Narrow windows use a single column.
   Feature switches apply at once and are saved in the current browser or desktop profile. The **Privacy**

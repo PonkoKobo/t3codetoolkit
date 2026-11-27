@@ -84,6 +84,7 @@ const copy = (from, to = from.split(/[\\/]/).pop()) => copyFileSync(from, join(d
 copy(join(here, "launch.mjs"));
 copy(join(here, "find-app.mjs"));
 copy(join(here, "splash.mjs"));
+copy(join(here, "antigravity-quota.mjs"));
 copy(join(here, "install.mjs")); // so `install.mjs --uninstall` works from the install folder too
 copy(bundle, "t3tk-core.js");
 if (existsSync(join(root, "package.json"))) copy(join(root, "package.json")); // records the installed version
@@ -113,6 +114,7 @@ const config = {
   app: appPath,
   // Older installs wrote keepTelemetry=false by default, so it cannot record an explicit opt-out.
   telemetryOff: !flag("--keep-telemetry") && previous?.telemetryOff === true,
+  ...(previous?.antigravityQuota === true ? { antigravityQuota: true } : {}),
   // Keep entries from an earlier install that this run didn't recreate, so uninstall finds them.
   shortcuts: [...new Set([...(previous?.shortcuts ?? []).filter((s) => existsSync(s)), ...shortcuts])],
   installedAt: new Date().toISOString(),

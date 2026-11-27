@@ -9,6 +9,7 @@ import { projectColors } from "./features/projectColors.js";
 import { threadRepositoryOverflow } from "./features/threadRepositoryOverflow.js";
 import { projectThreadMenu } from "./features/projectThreadMenu.js";
 import { sidebarProjectOrder } from "./features/sidebarProjectOrder.js";
+import { antigravityUsage } from "./features/antigravityUsage.js";
 import { closeAllAnnotators } from "./annotate/editor.js";
 import { CSS, ICONS, toast } from "./styles.js";
 import { askLauncher, hasLauncher } from "./launcher.js";
@@ -17,7 +18,7 @@ const VERSION = __T3TK_VERSION__;
 // null for a clean build of the release tag; otherwise which GitHub release this build follows.
 const BUILD = __T3TK_BUILD__;
 const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
-const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
+const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu, antigravityUsage];
 const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
@@ -32,6 +33,7 @@ const MENU_COLUMNS = [
       [effortShortcuts, "Reasoning effort shortcuts", "Alt/Option + 1–6", "Hold or scroll for levels"],
       [modelSwitcher, "Favorite model shortcuts", "Ctrl+Alt + 1–9", "Hold for favorites"],
       [arrangeFavorites, "Arrange Favorites"],
+      [antigravityUsage, "Antigravity quota commands", null, "In Usage"],
     ]],
   ],
   [

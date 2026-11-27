@@ -43,6 +43,35 @@ button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outl
 [data-t3tk-thread-hidden] { display: none !important; }
 .t3tk-menu-section + .t3tk-menu-section { padding-top: 11px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
 .t3tk-menu-subheading { margin: 0 0 4px 5px; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.065em; color: var(--muted-foreground, #999); }
+.t3tk-antigravity-usage {
+  display: grid; gap: 5px; flex: none; padding: 10px 20px;
+  border-bottom: 1px solid var(--border, rgb(128 128 128 / 25%));
+  color: var(--muted-foreground, inherit); font-size: 12px;
+}
+.t3tk-antigravity-usage h2 { margin: 0; color: var(--foreground, inherit); font: inherit; font-weight: 600; }
+.t3tk-antigravity-usage p { margin: 0; }
+.t3tk-quota-commands, .t3tk-quota-step { display: flex; flex-wrap: wrap; align-items: center; }
+.t3tk-quota-commands { gap: 5px 16px; }
+.t3tk-quota-step { gap: 6px; }
+.t3tk-quota-step button, .t3tk-quota-open-terminal {
+  padding: 1px 7px; border: 1px solid var(--border, rgb(128 128 128 / 25%)); border-radius: 5px;
+  background: var(--muted, transparent); color: var(--foreground, inherit);
+  font: 12px/18px var(--font-mono, monospace); cursor: pointer;
+}
+.t3tk-quota-open-terminal { font-family: inherit; }
+.t3tk-quota-step button:hover, .t3tk-quota-open-terminal:hover { border-color: var(--muted-foreground, #888); }
+.t3tk-quota-step button:focus-visible, .t3tk-quota-open-terminal:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 2px; }
+.t3tk-quota-popover { inset: auto; margin: 0; width: min(320px, calc(100vw - 16px)); }
+.t3tk-quota-popover header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.t3tk-quota-popover h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.t3tk-quota-popover h3 { margin: 12px 0 4px; font-size: 12px; font-weight: 650; }
+.t3tk-quota-popover dl {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; margin: 0;
+  border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); padding-top: 6px;
+}
+.t3tk-quota-popover dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.t3tk-quota-popover p { margin: 10px 0 0; color: var(--muted-foreground, #999); font-size: 11px; }
+.t3tk-quota-popover p:empty { display: none; }
 @media (max-width: 520px) {
   .t3tk-menu-grid { grid-template-columns: minmax(0, 1fr); }
   .t3tk-menu-column + .t3tk-menu-column { padding-top: 11px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }

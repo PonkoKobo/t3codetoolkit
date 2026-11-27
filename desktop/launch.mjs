@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findApp, installDir, windowsAppId, windowsLauncherName } from "./find-app.mjs";
 import { splashSource } from "./splash.mjs";
+import { readAntigravityQuota } from "./antigravity-quota.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -67,7 +68,9 @@ if (!appPath || !existsSync(appPath)) fail("Couldn't find the T3 Code app. Pass 
 
 const bundlePath = [join(here, "t3tk-core.js"), join(here, "..", "dist", "t3tk-core.js")].find((p) => existsSync(p));
 if (!bundlePath) fail("t3tk-core.js is missing. Run `npm run build`, or reinstall the toolkit.");
-const bundle = readFileSync(bundlePath, "utf8");
+// Keep consumer builds on the manual terminal workflow unless the local installation enables this.
+const quotaEnabled = process.platform === "win32" && config.antigravityQuota === true;
+const bundle = (quotaEnabled ? "window.__T3TK_ANTIGRAVITY_QUOTA__ = true;\n" : "") + readFileSync(bundlePath, "utf8");
 const logoPath = [join(here, "splash.png"), join(here, "..", "assets", "icon.png")].find((path) => existsSync(path));
 const startupScript = logoPath ? splashSource(readFileSync(logoPath, "base64")) : null;
 
@@ -224,7 +227,7 @@ async function inject(target) {
     const { sessionId } = await send("Target.attachToTarget", { targetId: id, flatten: true });
     if (startupScript) await registerSplash(id, sessionId);
     await send("Page.enable", {}, sessionId);
-    // A private channel for the toolkit menu's telemetry switch (see onLauncherRequest). Bindings
+    // A private channel for settings and quota (see onLauncherRequest). Bindings
     // survive reloads. Runtime.enable makes sure binding calls are reported back to us.
     await send("Runtime.addBinding", { name: BINDING }, sessionId);
     await send("Runtime.enable", {}, sessionId);
@@ -253,8 +256,9 @@ async function inject(target) {
 
 const BINDING = "__t3tkLauncher";
 
-// The page asks with {id, get: true} or {id, telemetryOff: boolean}; anything else is ignored.
-function onLauncherRequest(sessionId, payload) {
+let quotaRequest = null;
+
+async function onLauncherRequest(sessionId, { payload, executionContextId }) {
   let request;
   try {
     request = JSON.parse(payload);
@@ -262,6 +266,25 @@ function onLauncherRequest(sessionId, payload) {
     return;
   }
   if (!request || !Number.isInteger(request.id)) return;
+  if (request.antigravityQuota === true) {
+    if (!quotaEnabled || !Number.isInteger(executionContextId)) return;
+    const context = await send("Runtime.evaluate", {
+      contextId: executionContextId,
+      expression: `window === window.top && ${APP_URL}.test(location.href) && navigator.userActivation.isActive`,
+      returnByValue: true,
+    }, sessionId, 2000).catch(() => null);
+    if (context?.result?.value !== true) return;
+
+    const reply = { id: request.id };
+    quotaRequest ??= readAntigravityQuota().finally(() => { quotaRequest = null; });
+    try { reply.state = await quotaRequest; }
+    catch (error) { reply.error = error.message; }
+    await send("Runtime.evaluate", {
+      contextId: executionContextId,
+      expression: `window.__t3tkLauncherReply?.(${JSON.stringify(reply)})`,
+    }, sessionId).catch(() => {});
+    return;
+  }
   let reply;
   try {
     if (typeof request.telemetryOff === "boolean") reply = { id: request.id, state: setTelemetryOff(request.telemetryOff) };
@@ -283,7 +306,7 @@ function onMessage(message) {
     return;
   }
   if (message.method === "Runtime.bindingCalled" && message.params?.name === BINDING && message.sessionId) {
-    onLauncherRequest(message.sessionId, message.params.payload);
+    void onLauncherRequest(message.sessionId, message.params);
     return;
   }
   if (message.method === "Target.attachedToTarget" && !message.sessionId && startupScript) {

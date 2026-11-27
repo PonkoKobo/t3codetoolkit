@@ -147,7 +147,7 @@ test("release zips are valid and complete and match their published checksums", 
   assert.deepEqual(desktop.get(top + "dist/t3tk-core.js").data, read("dist/t3tk-core.js"));
   for (const name of [
     "install.cmd", "install.sh", "install.command", "dist/t3tk-core.js",
-    "desktop/install.mjs", "desktop/launch.mjs", "desktop/splash.mjs", "desktop/start.sh", "desktop/start.ps1",
+    "desktop/install.mjs", "desktop/launch.mjs", "desktop/antigravity-quota.mjs", "desktop/splash.mjs", "desktop/start.sh", "desktop/start.ps1",
     "desktop/windows-launcher.cs", "desktop/windows-shell.ps1", "assets/icon.png", "assets/icon.ico",
   ]) {
     assert.ok(desktop.has(top + name), `${name} in the desktop zip`);

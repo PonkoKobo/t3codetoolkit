@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
+import { parseQuotaReport } from "../desktop/antigravity-quota.mjs";
 
 const root = join(import.meta.dirname, "..");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -50,11 +51,25 @@ test("launcher dry run resolves the app and inherits telemetry by default", () =
   assert.deepEqual(userOff.telemetryState, { offNow: true, offNextStart: true, lockedBy: "user-setting" });
 });
 
+test("Antigravity quota accepts model groups dynamically and handles missing reset times", () => {
+  const report = [
+    "CLI status message",
+    "Gemini Models\tWeekly Limit Remaining\t79%\t2026-12-03T08:39:11Z",
+    "Another model group\tFive Hour Limit Remaining\t100%\t1970-01-01T00:00:00Z",
+    "Invalid group\tWeekly Limit Remaining\t101%\t2026-12-03T08:39:11Z",
+  ].join("\r\n");
+  assert.deepEqual(parseQuotaReport(report), [
+    { group: "Gemini Models", limit: "Weekly Limit Remaining", remaining: 79, resetAt: "2026-12-03T08:39:11.000Z" },
+    { group: "Another model group", limit: "Five Hour Limit Remaining", remaining: 100, resetAt: null },
+  ]);
+  assert.throws(() => parseQuotaReport("Sign in first"), /no quota rows/);
+});
+
 test("install, run the installed launcher, uninstall", () => {
   run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--shortcuts", shortcuts]);
 
   const starter = process.platform === "win32" ? "start.ps1" : "start.sh";
-  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
+  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "antigravity-quota.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
     assert.ok(existsSync(join(dir, file)), `${file} installed`);
   }
   if (process.platform !== "win32") assert.ok(statSync(join(dir, "start.sh")).mode & 0o100, "start.sh is executable");
