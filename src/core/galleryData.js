@@ -53,6 +53,30 @@ export function classifyImageSource(raw) {
   return { path, relative: !absolute };
 }
 
+/** Decode an embedded image without a network request, which the desktop renderer can block. */
+export function embeddedImageBlob(url) {
+  const [, type, parameters, payload] = /^data:(image\/[^;,]+)([^,]*),(.*)$/is.exec(url.split("#", 1)[0]) ?? [];
+  if (!type) throw new Error("Invalid embedded image URL");
+  if (/;\s*base64\s*$/i.test(parameters)) {
+    const bytes = Uint8Array.from(atob(decodeURIComponent(payload)), (byte) => byte.charCodeAt(0));
+    return new Blob([bytes], { type });
+  }
+  const bytes = new TextEncoder().encode(payload);
+  let length = 0;
+  for (let offset = 0; offset < bytes.length; offset++) {
+    if (bytes[offset] === 37 && offset + 2 < bytes.length) {
+      const hex = String.fromCharCode(bytes[offset + 1], bytes[offset + 2]);
+      if (/^[0-9a-f]{2}$/i.test(hex)) {
+        bytes[length++] = Number.parseInt(hex, 16);
+        offset += 2;
+        continue;
+      }
+    }
+    bytes[length++] = bytes[offset];
+  }
+  return new Blob([bytes.subarray(0, length)], { type });
+}
+
 /** Image destinations written in markdown text: `![alt](dest "title")` and `<img src="...">`. */
 export function markdownImageSources(text) {
   if (typeof text !== "string" || !text.includes("!") && !/<img/i.test(text)) return [];

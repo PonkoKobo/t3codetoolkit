@@ -4,7 +4,7 @@
 // image URLs via `assets.createUrl`. Nothing is written to the server.
 import { openAnnotator } from "../annotate/editor.js";
 import { addToComposer, findComposer } from "../composer.js";
-import { arrangeImages, imagesFromRows, projectThreads, SORTS } from "../galleryData.js";
+import { arrangeImages, embeddedImageBlob, imagesFromRows, projectThreads, SORTS } from "../galleryData.js";
 import { homeHref } from "../projectKeys.js";
 import { findPropsUp } from "../react.js";
 import { galleryIcon } from "../icons.js";
@@ -450,7 +450,7 @@ function showGallery(group) {
     if (!composer) return toast("Open a thread first, then add the image to its message box.");
     try {
       const src = await imageUrl(image);
-      const blob = await (await fetch(src)).blob();
+      const blob = /^data:/i.test(src) ? embeddedImageBlob(src) : await (await fetch(src)).blob();
       const type = blob.type || image.mimeType || "image/png";
       const ext = type.split("/")[1]?.replace("jpeg", "jpg").replace(/\+.*/, "") || "png";
       const name = /\.[a-z0-9]{2,5}$/i.test(image.name) ? image.name : `${image.name.replace(/\s+/g, "-")}.${ext}`;

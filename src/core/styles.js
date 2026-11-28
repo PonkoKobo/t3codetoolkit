@@ -44,8 +44,36 @@ button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outl
 .t3tk-menu-section + .t3tk-menu-section { padding-top: 11px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
 .t3tk-menu-subheading { margin: 0 0 4px 5px; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.065em; color: var(--muted-foreground, #999); }
 @media (max-width: 520px) {
+  /* Reserve space for the toolbar alongside the title on narrow chat headers. */
+  [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) {
+    position: static; order: 1; flex: none;
+  }
+  [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) + div {
+    padding-inline-end: 0; overflow: hidden;
+  }
+  [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) + div > nav > ol {
+    gap: 4px;
+  }
+  [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) + div > nav > ol:has(h2) > li:first-child:has([data-slot="project-monogram"]) {
+    max-inline-size: clamp(20px, calc(100% - 112px), 90px);
+  }
+  [data-chat-header] > [data-workspace-titlebar-controls] > .t3tk-loaded {
+    justify-content: center; width: 34px; height: 34px; padding: 0; margin-inline-end: 0;
+    border-color: transparent; border-radius: 8px;
+  }
+  [data-chat-header] > [data-workspace-titlebar-controls] > .t3tk-loaded > span { display: none; }
+  [data-chat-header] > [data-workspace-titlebar-controls] > .t3tk-loaded > svg { width: 16px; height: 16px; }
+  [data-effort-row][data-effort-level] { min-height: 40px; }
   .t3tk-menu-grid { grid-template-columns: minmax(0, 1fr); }
   .t3tk-menu-column + .t3tk-menu-column { padding-top: 11px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
+}
+@media (max-width: 375px) {
+  [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) + div > nav > ol:has(h2) > li:first-child [data-slot="project-monogram"] + span {
+    display: none;
+  }
+}
+@media (max-width: 520px) and (hover: none) and (pointer: coarse) {
+  .t3tk-effort-key { display: none; }
 }
 .t3tk-compact-row kbd,
 .t3tk-effort-key {
@@ -245,12 +273,13 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 .t3tk-swatch:is([aria-pressed="true"], :focus-visible) { outline: 1px solid #fff; outline-offset: 2px; }
 .t3tk-toast, .t3tk-annotate-dismiss {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2147483001;
+  pointer-events: none;
   background: #222; color: #eee; padding: 8px 14px; border-radius: 8px; font: 13px system-ui, sans-serif;
   box-shadow: 0 6px 24px rgb(0 0 0 / 40%);
 }
 .t3tk-annotate-dismiss {
   top: calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 0px) + 46px);
-  bottom: auto; pointer-events: none;
+  bottom: auto;
 }
 .t3tk-annotate-dismiss:empty { opacity: 0; }
 /* While the row's hover icons show, end the project name before them instead of under them. */

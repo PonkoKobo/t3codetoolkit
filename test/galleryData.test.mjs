@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { arrangeImages, classifyImageSource, imagesFromRows, markdownImageSources, projectThreads, toolOutputImageMimes } from "../src/core/galleryData.js";
+import { arrangeImages, classifyImageSource, embeddedImageBlob, imagesFromRows, markdownImageSources, projectThreads, toolOutputImageMimes } from "../src/core/galleryData.js";
 
 const thread = { id: "thread-a", title: "Sprite work", updatedAt: "2026-01-03T00:00:00.000Z" };
 
@@ -22,6 +22,19 @@ test("markdown and html image tags are found, links are not", () => {
     { alt: "hero", src: "out/hero.png" },
     { alt: "map", src: "maps/m.png" },
   ]);
+});
+
+test("embedded gallery images decode locally and preserve their bytes and MIME type", async () => {
+  const png = embeddedImageBlob("data:image/png;BASE64,iVBORw%3D%3D#preview");
+  assert.equal(png.type, "image/png");
+  assert.deepEqual([...new Uint8Array(await png.arrayBuffer())], [137, 80, 78, 71]);
+
+  const svg = embeddedImageBlob("data:image/svg+xml;charset=utf-8,%3Csvg%3E雪%23%3C%2Fsvg%3E#preview");
+  assert.equal(svg.type, "image/svg+xml");
+  assert.equal(await svg.text(), "<svg>雪#</svg>");
+
+  const raw = embeddedImageBlob("data:image/gif,%00%FF");
+  assert.deepEqual([...new Uint8Array(await raw.arrayBuffer())], [0, 255]);
 });
 
 test("tool output images follow the server's index order and limits", () => {

@@ -321,6 +321,7 @@ function boot(surface, hostVersion, paused = false) {
       button.className = "t3tk-loaded";
       button.dataset.t3tkLoaded = "";
       button.title = paused ? "Toolkit features are disabled for this session" : `T3CodeToolkit ${LABEL}: turn features on or off`;
+      button.setAttribute("aria-label", paused ? "Toolkit disabled" : "Toolkit");
       button.setAttribute("aria-haspopup", "dialog");
       button.setAttribute("aria-expanded", "false");
       const label = document.createElement("span");

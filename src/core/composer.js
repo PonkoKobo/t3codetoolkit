@@ -53,11 +53,17 @@ export async function addToComposer(editor, { file, text }) {
   if (!editor?.isConnected) return result;
   const area = composerArea(editor);
   if (file) {
-    const before = area.textContent.split(file.name).length;
+    const name = CSS.escape(file.name);
+    const attachmentCount = () => Math.max(
+      area.querySelectorAll(`img[alt="${name}"]`).length,
+      area.querySelectorAll(`[data-chat-composer-resting-images] button[aria-label$="${name}"]`).length,
+    );
+    const before = attachmentCount();
+    const beforeText = area.textContent.split(file.name).length;
     placeCaretAtEnd(editor);
     if (!pasteInto(editor, (d) => d.items.add(file))) return result;
     result.file = await waitFor(
-      () => area.textContent.split(file.name).length > before || !!area.querySelector(`img[alt="${CSS.escape(file.name)}"]`),
+      () => attachmentCount() > before || area.textContent.split(file.name).length > beforeText,
     );
     if (!result.file || !editor.isConnected) return result;
   }
