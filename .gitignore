@@ -3,3 +3,8 @@ dist/
 extension/core.js
 *.zip
 release/
+desktop/config.json
+desktop/quick-launcher-cache.json
+desktop/antigravity-quota-cache.json
+desktop/browser-bridge/bin/
+desktop/browser-bridge/obj/

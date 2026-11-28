@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Toolkit browser sharing</title>
+<style>
+  :root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
+  body { min-width: 280px; margin: 16px; }
+  h1 { font-size: 16px; margin: 0; }
+  p { overflow-wrap: anywhere; }
+  div { display: flex; gap: 8px; margin: 8px 0; }
+  button { font: inherit; padding: 5px 8px; }
+  [hidden] { display: none; }
+</style>
+<script src="browser-popup.js" type="module"></script>
+</head>
+<body>
+<h1>Browser sharing</h1>
+<p id="status" role="status">Checking Toolkit…</p>
+<p id="target" hidden></p>
+<div>
+  <button id="permission" hidden>Allow connection</button>
+  <button id="share" hidden>Share this tab</button>
+  <button id="stop" hidden>Stop sharing</button>
+  <button id="approve" hidden>Approve click</button>
+  <button id="deny" hidden>Deny</button>
+</div>
+<div>
+  <button id="copy">Copy extension ID</button>
+  <button id="options">Toolkit settings</button>
+</div>
+</body>
+</html>

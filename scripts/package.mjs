@@ -5,6 +5,7 @@ import { deflateRawSync, crc32 } from "node:zlib";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const { version } = JSON.parse(readFileSync("package.json", "utf8"));
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
@@ -104,9 +105,11 @@ const desktop = [
   "assets/screenshots/toolkit-menu.png",
   "scripts/telemetry.cmd",
   "scripts/telemetry.sh",
-  "desktop/antigravity-quota.mjs",
-  "desktop/config.mjs",
   "desktop/find-app.mjs",
+  "desktop/antigravity-quota.mjs",
+  "desktop/quick-launcher.mjs",
+  "desktop/browser-sharing.mjs",
+  "desktop/config.mjs",
   "desktop/install.mjs",
   "desktop/launch.mjs",
   "desktop/splash.mjs",
@@ -115,20 +118,41 @@ const desktop = [
   "desktop/windows-launcher.cs",
   "desktop/windows-shell.ps1",
 ].map((path) => ({ name: top + path, data: readFileSync(path) }));
+if (process.platform === "win32" || process.env.T3TK_BUNDLE_WINDOWS_BROWSER === "1") {
+  const bridge = "dist/browser-bridge";
+  execFileSync("dotnet", [
+    "publish", "desktop/browser-bridge/T3ToolkitBrowser.csproj", "-c", "Release", "-r", "win-x64",
+    "--self-contained", "-p:PublishSingleFile=true", "-p:EnableCompressionInSingleFile=true", "-o", bridge,
+  ], { stdio: "inherit" });
+  const path = join(bridge, "T3ToolkitBrowser.exe");
+  desktop.push({ name: top + bridge + "/T3ToolkitBrowser.exe", data: readFileSync(path) });
+}
 writeArchive(`T3CodeToolkit-${version}.zip`, desktop);
 
 // Keep the shared manifest loadable from source and tailor only the packaged copies.
 const { background: { service_worker, scripts, ...sharedBackground }, browser_specific_settings, ...sharedManifest } = manifest;
 const chromium = { ...sharedManifest, background: { ...sharedBackground, service_worker } };
+const chrome = {
+  ...chromium,
+  permissions: [...chromium.permissions, "activeTab"],
+  optional_permissions: [...(chromium.optional_permissions ?? []), "nativeMessaging"],
+  background: { ...sharedBackground, service_worker: "chrome-background.js" },
+  action: { ...chromium.action, default_title: "T3CodeToolkit", default_popup: "browser-popup.html" },
+};
 const firefox = { ...sharedManifest, background: { ...sharedBackground, scripts }, browser_specific_settings };
 
 // Each extension ZIP has manifest.json at its root.
 const extension = ["background.js", "core.js", "icon-128.png", "options.html", "options.js"]
   .map((name) => ({ name, data: readFileSync(join("extension", name)) }));
 extension.push({ name: "LICENSE", data: readFileSync("LICENSE") });
-for (const [browser, browserManifest] of Object.entries({ chrome: chromium, edge: chromium, firefox })) {
+for (const [browser, browserManifest] of Object.entries({ chrome, edge: chromium, firefox })) {
+  const sharing = browser === "chrome"
+    ? ["chrome-background.js", "browser-sharing.js", "browser-popup.html", "browser-popup.js"]
+      .map((name) => ({ name, data: readFileSync(join("extension", name)) }))
+    : [];
   writeArchive(`T3CodeToolkit-extension-${browser}-${version}.zip`, [
     ...extension,
+    ...sharing,
     { name: "manifest.json", data: Buffer.from(JSON.stringify(browserManifest, null, 2) + "\n") },
   ]);
 }

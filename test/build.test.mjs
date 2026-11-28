@@ -19,9 +19,9 @@ test("both bundles are classic scripts and the host menu loader ships only on de
     assert.doesNotMatch(bundle, /^\s*(import|export)\s/m, "no static module syntax left");
     new vm.Script(bundle);
   }
-  const dynamicImport = /\bimport\s*\(/;
-  assert.ok(dynamicImport.test(desktop), "desktop retains the host menu loader");
-  assert.ok(!dynamicImport.test(extension), "the browser extension contains no dynamic imports");
+  const hostMenuLoader = /\bfunction projectContextMenu\s*\(/;
+  assert.ok(hostMenuLoader.test(desktop), "desktop retains the host menu loader");
+  assert.ok(!hostMenuLoader.test(extension), "extension omits the host menu loader");
   assert.match(desktop, /Show Gemini quota/);
   assert.doesNotMatch(extension, /Gemini quota|__T3TK_ANTIGRAVITY_QUOTA__/);
 });
@@ -166,10 +166,14 @@ test("release zips are valid and complete and match their published checksums", 
   assert.deepEqual(desktop.get(top + "dist/t3tk-core.js").data, read("dist/t3tk-core.js"));
   for (const name of [
     "install.cmd", "install.sh", "install.command", "dist/t3tk-core.js",
+    "desktop/install.mjs", "desktop/launch.mjs", "desktop/antigravity-quota.mjs", "desktop/config.mjs", "desktop/quick-launcher.mjs", "desktop/browser-sharing.mjs", "desktop/splash.mjs", "desktop/start.sh", "desktop/start.ps1",
     "desktop/windows-launcher.cs", "desktop/windows-shell.ps1", "assets/icon.png", "assets/icon.ico",
-    "desktop/config.mjs", "desktop/antigravity-quota.mjs",
   ]) {
     assert.ok(desktop.has(top + name), `${name} in the desktop zip`);
+  }
+  if (process.platform === "win32" || process.env.T3TK_BUNDLE_WINDOWS_BROWSER === "1") {
+    const helper = "dist/browser-bridge/T3ToolkitBrowser.exe";
+    assert.deepEqual(desktop.get(top + helper)?.data, read(helper));
   }
   for (const name of ["install.sh", "install.command", "desktop/start.sh"]) {
     assert.equal(desktop.get(top + name).mode & 0o777, 0o755, `${name} is executable`);
@@ -191,6 +195,13 @@ test("release zips are valid and complete and match their published checksums", 
     if (browser === "firefox") {
       assert.deepEqual(manifest.background, { scripts: ["background.js"] });
       assert.deepEqual(manifest.browser_specific_settings, sourceManifest.browser_specific_settings);
+    } else if (browser === "chrome") {
+      assert.deepEqual(manifest.background, { service_worker: "chrome-background.js" });
+      assert.equal(manifest.action.default_popup, "browser-popup.html");
+      assert.ok(manifest.permissions.includes("activeTab"));
+      assert.ok(manifest.optional_permissions.includes("nativeMessaging"));
+      for (const name of ["chrome-background.js", "browser-sharing.js", "browser-popup.html", "browser-popup.js"])
+        assert.deepEqual(extension.get(name)?.data, read(`extension/${name}`));
     } else {
       assert.deepEqual(manifest.background, { service_worker: "background.js" });
       assert.ok(!Object.hasOwn(manifest, "browser_specific_settings"));

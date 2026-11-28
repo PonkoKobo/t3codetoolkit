@@ -11,6 +11,10 @@ import { projectThreadMenu } from "./features/projectThreadMenu.js";
 import { sidebarProjectOrder } from "./features/sidebarProjectOrder.js";
 import { antigravityUsage, appendQuotaSetting } from "./features/antigravityUsage.js";
 import { quotaCSS } from "./features/antigravityQuota.js";
+import { planMode } from "./features/planMode.js";
+import { selectionSearch } from "./features/selectionSearch.js";
+import { browserSharingSettings } from "./features/browserSharing.js";
+import { quickLauncher, quickLauncherMenuHint } from "./features/quickLauncher.js";
 import { closeAllAnnotators } from "./annotate/editor.js";
 import { CSS, toast } from "./styles.js";
 import { hammerIcon } from "./icons.js";
@@ -20,7 +24,7 @@ const VERSION = __T3TK_VERSION__;
 // null for a clean build of the release tag; otherwise which GitHub release this build follows.
 const BUILD = __T3TK_BUILD__;
 const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
-const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
+const FEATURES = [compactButton, planMode, imageAnnotate, selectionSearch, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu, quickLauncher];
 const desktopQuota = __T3TK_EXTENSION__ ? null : { feature: antigravityUsage, css: quotaCSS, appendSetting: appendQuotaSetting };
 const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
@@ -29,8 +33,10 @@ const MENU_COLUMNS = [
   [
     ["Chat & images", [
       [compactButton, "Compact button", "Shift+C", "in Thread Details"],
-      [imageAnnotate, "Annotate images", "Shift+A", "in the image viewer"],
+      [planMode, "Plan / Build button", null, "In the Codex and Claude composer"],
+      [imageAnnotate, "Annotate images and video frames", "Shift+A", "in the image viewer"],
       [imageGallery, "Project image gallery"],
+      [selectionSearch, "Search selected text in browser", null, "Right-click highlighted text"],
     ]],
     ["Models & effort", [
       [effortShortcuts, "Reasoning effort shortcuts", "Alt/Option + 1–6", "Hold or scroll for levels"],
@@ -40,10 +46,11 @@ const MENU_COLUMNS = [
   ],
   [
     ["Projects & sidebar", [
-      [projectSwitcher, "Open a thread in a pinned project", "Ctrl+Shift + 1–9", "Hold for projects"],
+      [projectSwitcher, "New thread shortcuts", "Ctrl+Shift + 1–9 / N", "1–9 pinned project · N no project"],
       [sidebarProjectOrder, "Match sidebar order to pinned shortcuts"],
       [projectColors, "Colour project names by icon"],
       [projectThreadMenu, "Project Show more / Show less", null, "In the sidebar"],
+      [quickLauncher, "Quick launcher menus", () => quickLauncherMenuHint()],
     ]],
     ["Thread Details", [[threadRepositoryOverflow, "Repository organizer & expansion"]]],
     ["Privacy"],
@@ -224,6 +231,8 @@ function boot(surface, hostVersion, paused = false) {
       for (const [title, entries] of groups) {
         if (!entries) {
           column.append(telemetrySection());
+          const sharing = paused ? null : browserSharingSettings();
+          if (sharing) column.append(sharing);
           continue;
         }
         const visible = entries.filter(([feature]) => available.includes(feature));
@@ -237,6 +246,7 @@ function boot(surface, hostVersion, paused = false) {
     panel.append(grid);
 
     function appendFeature(section, feature, label, shortcut, hint) {
+      if (typeof shortcut === "function") ({ shortcut, hint } = shortcut());
       const row = document.createElement("label");
       row.className = "t3tk-menu-row";
       const input = document.createElement("input");
@@ -313,9 +323,12 @@ function boot(surface, hostVersion, paused = false) {
 
   function syncMenuButton() {
     const slots = [...document.querySelectorAll("[data-workspace-titlebar-controls]")]
-      .filter((slot) => slot.getClientRects().length > 0);
-    // The split layout also mounts a chat toolbar without the right-panel toggle.
-    const controls = slots.find((slot) => slot.querySelector("[data-right-panel-toggle]")) ?? slots[0];
+      .filter((slot) => slot.getClientRects().length > 0 && !slot.closest("[inert]"));
+    // In split view, keep Toolkit beside Thread Details in the chat column.
+    const chatControls = slots.find((slot) => slot.matches(
+      "[data-chat-header] > [data-workspace-titlebar-controls]:has([data-thread-panel-toggle]):not(:has([data-right-panel-toggle]))",
+    ));
+    const controls = chatControls ?? slots.find((slot) => slot.querySelector("[data-right-panel-toggle]")) ?? slots[0];
     const target = controls ?? (paused ? document.body : null);
     if (target && menuButton?.parentElement === target) return;
     closeMenu();
@@ -365,7 +378,7 @@ function boot(surface, hostVersion, paused = false) {
   }
 
   const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state", "aria-current", "aria-expanded"] });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "aria-busy", "aria-pressed", "data-state", "aria-current", "aria-expanded", "inert"] });
   for (const feature of paused ? [] : available) {
     try {
       feature.init?.({ resync: schedule, surface });

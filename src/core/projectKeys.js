@@ -5,6 +5,11 @@ export function projectChordHeld(event) {
   return Boolean(event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey);
 }
 
+/** Match the physical N key, including repeats so the handler can suppress their native action. */
+export function isProjectlessShortcut(event) {
+  return projectChordHeld(event) && event.code === "KeyN" && !event.isComposing && event.keyCode !== 229;
+}
+
 /** Ctrl+Shift + 1..9 → pinned project slot 1..9, otherwise null. Matched on the physical key (event.code). */
 export function projectSlotFromKey(event) {
   if (!projectChordHeld(event) || event.repeat || event.isComposing) return null;

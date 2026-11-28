@@ -53,6 +53,11 @@ try {
 if (flag("--uninstall")) {
   const config = previous;
   if (!config) die(`No toolkit install found in ${dir}.`);
+  const browserHelper = join(dir, "T3ToolkitBrowser.exe");
+  if (os === "win32" && existsSync(browserHelper)) {
+    try { execFileSync(browserHelper, ["unregister"], { windowsHide: true }); }
+    catch { die("Close any active Toolkit browser share before removing the browser helper."); }
+  }
   for (const shortcut of config.shortcuts ?? []) {
     rmSync(shortcut, { recursive: true, force: true });
     say(`Removed ${shortcut}`);
@@ -86,12 +91,16 @@ copy(join(here, "config.mjs"));
 copy(join(here, "antigravity-quota.mjs"));
 copy(join(here, "find-app.mjs"));
 copy(join(here, "splash.mjs"));
+copy(join(here, "quick-launcher.mjs"));
+copy(join(here, "browser-sharing.mjs"));
 copy(join(here, "install.mjs")); // so `install.mjs --uninstall` works from the install folder too
 copy(bundle, "t3tk-core.js");
 if (existsSync(join(root, "package.json"))) copy(join(root, "package.json")); // records the installed version
 if (existsSync(iconPng)) copy(iconPng, "icon.png");
 if (existsSync(splashPng)) copy(splashPng, "splash.png");
 if (os === "win32") {
+  const browserHelper = join(root, "dist", "browser-bridge", "T3ToolkitBrowser.exe");
+  if (existsSync(browserHelper)) copy(browserHelper);
   copy(join(here, "start.ps1"));
   if (existsSync(windowsIcon)) copy(windowsIcon);
 }

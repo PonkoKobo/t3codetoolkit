@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appRoute, cycle, homeHref, isChordKey, projectChordHeld, projectSlotFromKey, projectSlots, sidebarFolderOrders } from "../src/core/projectKeys.js";
+import { appRoute, cycle, homeHref, isChordKey, isProjectlessShortcut, projectChordHeld, projectSlotFromKey, projectSlots, sidebarFolderOrders } from "../src/core/projectKeys.js";
 
 const key = (code, mods = {}) => ({ code, ctrlKey: true, shiftKey: true, altKey: false, metaKey: false, ...mods });
 
@@ -23,6 +23,16 @@ test("other modifier combinations belong to the model switcher, the thread short
 test("auto-repeat and IME composition are ignored", () => {
   assert.equal(projectSlotFromKey(key("Digit1", { repeat: true })), null);
   assert.equal(projectSlotFromKey(key("Digit1", { isComposing: true })), null);
+});
+
+test("Ctrl+Shift+N matches only the projectless chord outside IME composition", () => {
+  assert.equal(isProjectlessShortcut(key("KeyN")), true);
+  assert.equal(isProjectlessShortcut(key("KeyN", { repeat: true })), true);
+  assert.equal(isProjectlessShortcut(key("KeyN", { shiftKey: false, altKey: true })), false);
+  assert.equal(isProjectlessShortcut(key("KeyN", { ctrlKey: false, metaKey: true })), false);
+  assert.equal(isProjectlessShortcut(key("KeyN", { isComposing: true })), false);
+  assert.equal(isProjectlessShortcut(key("KeyN", { keyCode: 229 })), false);
+  assert.equal(isProjectlessShortcut(key("Digit1")), false);
 });
 
 test("the chord is Ctrl+Shift without Alt or Meta, started by Ctrl or Shift alone", () => {

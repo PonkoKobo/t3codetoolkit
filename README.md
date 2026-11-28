@@ -66,6 +66,10 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
 
 - **Compact button.** In Thread Details under Context, click **Compact** or press **Shift+C** outside
   text fields and the terminal. Both run the same `/compact` action when it is available.
+- **Plan / Build.** On T3 Code 0.1.13, click **Build** next to the Codex or Claude model picker
+  to switch the thread to **Plan**. Once a plan is ready, type a follow-up to keep planning, or
+  press **Enter** with an empty composer or click **Implement** to start building.
+  Use **Toolkit → Chat & images → Plan / Build button** to turn these controls on or off.
 - **Image annotation.** Enable **Open images directly in annotation mode** under **Toolkit → Chat &
   images → Annotate images** to open the editor as soon as you click an attached image.
   With that option off, click an attached image to expand it, then press **Shift+A** or click
@@ -92,12 +96,16 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   instead of zooming the window. Letting go without moving changes nothing; Esc cancels. Shift may be held
   too, but on Windows Alt+Shift also switches the input language, so plain Ctrl+Alt is the safer chord.
   AltGr is ignored so it still types its characters.
-- **Project switcher.** Ctrl+Shift+1 to Ctrl+Shift+9 open a new thread in that pinned project. Pin
+- **Project switcher.** Ctrl+Shift+1 to Ctrl+Shift+9 open a new thread in that pinned project.
+  Ctrl+Shift+N opens a new thread without a project using T3 Code's default **New Without Project**
+  binding (Ctrl+Alt+N on Windows/Linux or Cmd+Option+N on macOS). Use the native binding if your
+  browser reserves Ctrl+Shift+N. Pin
   projects with the pin button in the new-thread project picker; the first pinned project is 1, and later
   pins are added after it. The toolkit keeps that numbering in the current browser or desktop profile, so it
   doesn't move when the app lists the current project first. In the project picker, pinned projects are
   listed first with their number (1–9); drag a number's grip (⠿) to change the order. Hold Ctrl+Shift for a moment to see the projects
-  in a strip, pinned ones numbered first: press 1–9, or use the arrow keys (or Tab) or Ctrl+Shift+scroll and
+  in a strip, pinned ones numbered first: press 1–9 for a project or N for no project. You can also use
+  the arrow keys (or Tab) or Ctrl+Shift+scroll and
   let go. Letting go without moving changes nothing; Esc cancels. When the message box has text, the arrow
   keys keep selecting words, so use the wheel or a digit there. Any other Ctrl+Shift shortcut closes the
   strip and works as usual. The switcher stays off on the Usage page (Ctrl+Shift+1–4 choose its period) and
@@ -136,6 +144,25 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   and reopen **T3 Code + Toolkit**. The pill beside **Toolkit** and the **Thread Details** panel for
   Antigravity Gemini threads share the last saved weekly and 5-hour limits. **Refresh** in either view
   checks your signed-in Antigravity CLI (`agy.exe`). Toolkit updates keep your choice.
+- **Quick launcher menus (desktop).** Configure external launchers in your desktop install's `config.json`
+  under `"quickLaunchers"` to add a titlebar button and keyboard shortcut (such as `Ctrl+G`) inside T3 Code.
+  A launcher can either open an app directly (`openApp`) or populate a compact menu (`listCommand` returning
+  `{ quickResume, items }` JSON, with `launchCommand` using `{target}` to run a chosen entry). In an open
+  menu, click an item or press `1–9` to run its default action, expand `▸` for all actions, type to filter,
+  or click **Open App**. Existing `quickLaunchers` entries in `config.json` are preserved when reinstalling
+  Toolkit. Example entry:
+  ```json
+  "quickLaunchers": [
+    {
+      "id": "my-launcher",
+      "label": "Launcher",
+      "shortcut": "Ctrl+G",
+      "openApp": "/path/to/my-launcher",
+      "listCommand": ["/path/to/my-launcher", "--menu-json"],
+      "launchCommand": ["/path/to/my-launcher", "--launch", "{target}"]
+    }
+  ]
+  ```
 - **Thread Details repository expansion (desktop 0.1.12 and 0.1.13).** **Show more** keeps the extra
   repositories in the scrollable card. The fix is on by default for these versions
   and has its own switch in the Toolkit menu. [T3 Code issue #42907](https://github.com/pingdotgg/t3code/issues/42907)
@@ -160,6 +187,32 @@ It runs on `https://app.t3.codes` by default, which is also where remote session
 with a local `t3` server or another host, click the toolbar icon and add that address; the browser asks for
 permission for just that site.
 
+### Share a Chrome tab with an agent
+
+On Windows, use the desktop package and the Chrome extension ZIP. Open the Toolkit
+popup in Chrome and select **Copy extension ID**. In **T3 Code + Toolkit**, open
+the Toolkit menu, paste the ID under **Browser sharing**, and select **Enable**.
+In Chrome, select **Allow connection** when prompted. Reopen the popup on the
+tab you want to share.
+
+- For Codex or Claude Code, copy the corresponding setup from Toolkit. Append it to
+  **Launch arguments** for the selected local provider and open a new agent session.
+  Ask the agent to request tab sharing using the Toolkit browser tools.
+- For Gemini through Antigravity, or another local provider with shell access,
+  copy **Local command** and ask the agent to run it using its normal shell tool.
+  The command returns a temporary session handle for `status`, `snapshot`,
+  `scroll`, `request_click`, and `stop`. Run the helper with `--help` for usage.
+
+Select **Share this tab** in Chrome when the request appears. The agent can read
+visible text and scroll the page. Review **Approve click** or **Deny** in the popup
+when the toolbar badge shows the shared tab. The grant lasts up to 15 minutes and
+ends when you choose **Stop sharing** or **Disable**, close the tab, or visit
+another site. Share only pages you want the selected agent to read. Tool results
+may appear in the agent transcript.
+
+The helper runs only while enabled in Toolkit. The Windows release includes the
+helper. Building the Windows package from source requires the .NET 10 SDK.
+
 ## Desktop app
 
 Install [T3 Code](https://t3.codes) first. Extract the desktop ZIP and run the installer for your OS.
@@ -183,6 +236,9 @@ The shortcut starts your installed T3 Code and injects the toolkit. Nothing in t
 changed, so it keeps working after T3 Code updates. Good to know:
 
 - **Quit T3 Code first.** The app allows one copy; if it's already running, the shortcut tells you so.
+- **Windows sign-in.** If you set up a sign-in task, point it at `T3 Code + Toolkit.exe` in the
+  Toolkit install folder. The launcher retries while T3 Code is starting. If the launch fails,
+  the dialog shows the failed step and exit status and can open the log folder.
 - **Launch screen.** The toolkit shortcut shows the purple toolkit logo on the T3 Code startup screen.
 - **Windows taskbar.** Pin **T3 Code + Toolkit** from the Start menu. If you have a **T3 Code (Beta)**
   pin, unpin it first. The toolkit shortcut and its running window share their own taskbar identity.

@@ -68,7 +68,7 @@ test("install, run the installed launcher, uninstall", () => {
   run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--shortcuts", shortcuts]);
 
   const starter = process.platform === "win32" ? "start.ps1" : "start.sh";
-  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "antigravity-quota.mjs", "config.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
+  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "antigravity-quota.mjs", "config.mjs", "quick-launcher.mjs", "browser-sharing.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
     assert.ok(existsSync(join(dir, file)), `${file} installed`);
   }
   if (process.platform !== "win32") assert.ok(statSync(join(dir, "start.sh")).mode & 0o100, "start.sh is executable");
@@ -142,7 +142,7 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(upgraded.antigravityQuota, false);
 
   // A choice made with the new switch persists across updates.
-  const quickLaunchers = [{ id: "tools", label: "Tools" }];
+  const quickLaunchers = [{ id: "tools", label: "Tools", shortcut: "Ctrl+G", openApp: fakeApp }];
   const cachePath = join(dir, "antigravity-quota-cache.json");
   const savedQuota = JSON.stringify({ checkedAt: "2026-11-28T14:00:00Z", rows: [{ label: "Weekly", remaining: 50 }] });
   writeFileSync(cachePath, savedQuota);
@@ -154,6 +154,7 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(readFileSync(cachePath, "utf8"), savedQuota);
   const optedOut = dryRun();
   assert.equal(optedOut.telemetry, "false");
+  assert.equal(optedOut.quickLaunchers, 1);
   assert.deepEqual(optedOut.telemetryState, { offNow: true, offNextStart: true, lockedBy: null });
   assert.deepEqual(optedOut.quotaState, { available: quotaAvailable, enabledNow: quotaAvailable, enabledNextStart: quotaAvailable });
   const kept = dryRun("--keep-telemetry");

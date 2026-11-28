@@ -1,4 +1,4 @@
-import { appRoute, cycle, homeHref, isChordKey, projectChordHeld, projectSlotFromKey, projectSlots } from "../projectKeys.js";
+import { appRoute, cycle, homeHref, isChordKey, isProjectlessShortcut, projectChordHeld, projectSlotFromKey, projectSlots } from "../projectKeys.js";
 import { findPropsUp } from "../react.js";
 import { sleep, waitFor } from "../pickerDriver.js";
 import { placeFavorite } from "../favoriteOrder.js";
@@ -222,7 +222,7 @@ async function openStrip() {
   list.className = "t3tk-carousel-list";
   const hint = document.createElement("div");
   hint.className = "t3tk-hint";
-  hint.textContent = "1–9 pinned project · ←/→ or scroll, then release for a new thread there · Esc to cancel";
+  hint.textContent = "1–9 pinned project · N no project · ←/→ or scroll, then release for a new thread there · Esc to cancel";
   panel.append(list, hint);
   document.body.append(panel);
   const mine = ++token;
@@ -470,6 +470,26 @@ function editingText() {
 }
 
 function onKeyDown(event) {
+  if (isProjectlessShortcut(event)) {
+    closeStrip();
+    if (event.defaultPrevented || blocked(event) || event.target?.closest?.("[data-keybinding-capture]")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.repeat) return;
+
+    // Use T3 Code's default New Without Project binding so it chooses the scratch workspace
+    // and opens its own draft, including when the current thread has a project.
+    const mac = /Mac/i.test(navigator.platform);
+    const shortcut = new KeyboardEvent("keydown", {
+      key: "n", code: "KeyN", ctrlKey: !mac, metaKey: mac, altKey: true,
+      bubbles: true, cancelable: true, composed: true,
+    });
+    if ((event.target ?? window).dispatchEvent(shortcut)) {
+      toast(`New Without Project needs T3 Code's default ${mac ? "Cmd+Option+N" : "Ctrl+Alt+N"} binding`, 2400);
+    }
+    return;
+  }
+
   if (strip) {
     const digit = /^(?:Digit|Numpad)([1-9])$/.exec(event.code ?? "");
     const arrow = event.key.startsWith("Arrow");
@@ -571,7 +591,7 @@ let listening = false;
 
 export const projectSwitcher = {
   id: "project-switcher",
-  title: "Ctrl+Shift + 1-9 opens a new thread in a pinned project (hold to see them)",
+  title: "Ctrl+Shift + 1–9 opens a pinned project thread. Ctrl+Shift+N opens a thread without a project.",
   surfaces: ["web", "desktop"],
   sync() {
     if (!listening) {

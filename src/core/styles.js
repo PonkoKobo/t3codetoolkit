@@ -13,6 +13,25 @@ button.t3tk-loaded:hover, button.t3tk-loaded[aria-expanded="true"] {
 }
 button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 1px; }
 .t3tk-loaded svg { width: 12px; height: 12px; flex: none; color: light-dark(#16834b, #4ade80); }
+[data-t3tk-plan-mode], [data-t3tk-implement-plan] {
+  flex: none; min-width: 44px; margin-inline-end: 4px; padding: 3px 7px;
+  border: 1px solid transparent; border-radius: 6px; background: transparent;
+  color: var(--muted-foreground, inherit); font: 500 12px/18px var(--font-sans, system-ui, sans-serif);
+  white-space: nowrap; cursor: pointer;
+}
+[data-t3tk-plan-mode]:hover { background: var(--accent, transparent); color: var(--foreground, inherit); }
+[data-t3tk-plan-mode][aria-pressed="true"] {
+  color: light-dark(#854d0e, #fcd34d);
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  border-color: color-mix(in oklab, currentColor 25%, transparent);
+}
+[data-t3tk-plan-mode]:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 1px; }
+[data-t3tk-plan-mode]:disabled { opacity: 0.65; cursor: default; }
+[data-t3tk-implement-plan] {
+  background: var(--primary, #2563eb); color: var(--primary-foreground, #fff);
+}
+[data-t3tk-implement-plan]:hover { opacity: 0.9; }
+[data-t3tk-implement-plan]:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 1px; }
 .t3tk-menu {
   position: fixed; z-index: 2147483002; box-sizing: border-box; width: min(620px, calc(100vw - 16px));
   max-height: calc(100vh - 80px); overflow: auto;
@@ -43,6 +62,99 @@ button.t3tk-loaded:focus-visible { outline: 2px solid var(--ring, #6b8cff); outl
 [data-t3tk-thread-hidden] { display: none !important; }
 .t3tk-menu-section + .t3tk-menu-section { padding-top: 11px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
 .t3tk-menu-subheading { margin: 0 0 4px 5px; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.065em; color: var(--muted-foreground, #999); }
+.t3tk-ql-popover {
+  inset: auto; margin: 0; width: min(380px, calc(100vw - 16px)); max-height: min(560px, calc(100vh - 80px));
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; overflow: hidden;
+}
+.t3tk-ql-popover:focus { outline: none; }
+.t3tk-ql-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.t3tk-ql-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; }
+.t3tk-ql-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3tk-ql-title kbd, .t3tk-ql-main kbd {
+  flex: none; min-width: 18px; padding: 1px 5px; text-align: center;
+  border: 1px solid var(--border, rgb(128 128 128 / 25%)); border-radius: 4px;
+  color: var(--muted-foreground, #999); font: 10px/14px var(--font-mono, monospace);
+}
+.t3tk-ql-controls { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.t3tk-ql-controls .t3tk-btn { height: 24px; padding-inline: 8px; font-size: 11px; }
+.t3tk-ql-search {
+  width: 100%; height: 28px; padding: 0 9px; box-sizing: border-box;
+  border: 1px solid var(--border, rgb(128 128 128 / 25%)); border-radius: calc(var(--radius, 10px) - 2px);
+  background: var(--background, transparent); color: inherit; font: 12px/1 var(--font-sans, system-ui, sans-serif);
+}
+.t3tk-ql-search:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 1px; }
+.t3tk-ql-resume-slot:empty { display: none; }
+.t3tk-ql-resume {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center;
+  padding: 7px 9px; text-align: left; cursor: pointer; color: inherit; font: inherit;
+  border: 1px solid color-mix(in oklab, var(--primary, #4f6bff) 35%, var(--border, rgb(128 128 128 / 25%)));
+  border-radius: calc(var(--radius, 10px) - 2px);
+  background: color-mix(in oklab, var(--primary, #4f6bff) 10%, transparent);
+}
+.t3tk-ql-resume:hover { background: color-mix(in oklab, var(--primary, #4f6bff) 18%, transparent); }
+.t3tk-ql-resume:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: 1px; }
+.t3tk-ql-badge {
+  grid-row: span 2; padding: 2px 6px; border-radius: 999px; font-size: 10px; font-weight: 600;
+  color: var(--primary, #6b8cff); background: color-mix(in oklab, var(--primary, #4f6bff) 16%, transparent);
+  white-space: nowrap;
+}
+.t3tk-ql-resume strong, .t3tk-ql-resume small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3tk-ql-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 3px; padding-inline-end: 2px; overscroll-behavior: contain; }
+.t3tk-ql-empty { margin: 14px 4px; text-align: center; color: var(--muted-foreground, #999); font-size: 12px; }
+.t3tk-ql-group { display: flex; flex-direction: column; gap: 2px; }
+.t3tk-ql-row { display: flex; align-items: stretch; gap: 3px; border-radius: 7px; }
+.t3tk-ql-row[data-selected="true"] > .t3tk-ql-main {
+  background: color-mix(in oklab, var(--primary, #4f6bff) 18%, transparent);
+  border-color: color-mix(in oklab, var(--primary, #4f6bff) 45%, transparent);
+}
+.t3tk-ql-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.t3tk-ql-main:hover { background: color-mix(in oklab, var(--foreground, #888) 8%, transparent); }
+.t3tk-ql-main:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: -1px; }
+.t3tk-ql-nokey { flex: none; width: 18px; }
+.t3tk-ql-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.t3tk-ql-text strong { font-size: 12.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3tk-ql-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.t3tk-ql-expand {
+  flex: none; width: 26px; border: 1px solid transparent; border-radius: 7px; background: transparent;
+  color: var(--muted-foreground, #999); cursor: pointer; font-size: 12px; line-height: 1;
+}
+.t3tk-ql-expand:hover { background: color-mix(in oklab, var(--foreground, #888) 8%, transparent); color: var(--foreground, inherit); }
+.t3tk-ql-expand:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: -1px; }
+.t3tk-ql-sublist {
+  display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 26px; padding-inline-start: 8px;
+  border-inline-start: 1px solid var(--border, rgb(128 128 128 / 25%));
+}
+.t3tk-ql-action {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 7px;
+  border: 0; border-radius: 6px; background: transparent; color: inherit; font: 12px/1.3 var(--font-sans, system-ui, sans-serif);
+  text-align: left; cursor: pointer;
+}
+.t3tk-ql-action:hover:not(:disabled) { background: color-mix(in oklab, var(--foreground, #888) 8%, transparent); }
+.t3tk-ql-action[data-selected="true"] {
+  background: color-mix(in oklab, var(--primary, #4f6bff) 18%, transparent);
+  outline: 1px solid color-mix(in oklab, var(--primary, #4f6bff) 45%, transparent);
+}
+.t3tk-ql-action:disabled { opacity: 0.5; cursor: default; }
+.t3tk-ql-action:focus-visible { outline: 2px solid var(--ring, #6b8cff); outline-offset: -1px; }
+.t3tk-ql-action-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3tk-ql-tag {
+  flex: none; padding: 1px 5px; border-radius: 4px; font-size: 10px;
+  border: 1px solid var(--border, rgb(128 128 128 / 25%)); color: var(--muted-foreground, #999);
+}
+.t3tk-ql-action small { flex: none; font-size: 10.5px; color: var(--muted-foreground, #999); font-variant-numeric: tabular-nums; }
+.t3tk-ql-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; border-top: 1px solid var(--border, rgb(128 128 128 / 25%)); }
+.t3tk-ql-footer small:empty { display: none; }
+/* The split chat header normally reserves space for Thread Details alone. */
+[data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded):has([data-thread-panel-toggle]):not(:has([data-right-panel-toggle])) {
+  position: static; order: 1; flex: none;
+}
+[data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded):has([data-thread-panel-toggle]):not(:has([data-right-panel-toggle])) + div {
+  padding-inline-end: 0; overflow: hidden;
+}
 @media (max-width: 520px) {
   /* Reserve space for the toolbar alongside the title on narrow chat headers. */
   [data-chat-header] > [data-workspace-titlebar-controls]:has(> .t3tk-loaded) {
@@ -188,6 +300,26 @@ html[data-t3tk-project-silent] [data-slot="combobox-positioner"]:has([data-slot=
 [data-t3tk-annotate-handoff],
 [data-slot="dialog-backdrop"]:has(~ [data-slot="dialog-viewport"] [data-t3tk-annotate-handoff]) {
   opacity: 0 !important; transition: none !important; animation: none !important;
+}
+:where([data-t3tk-video-player]) { position: relative; }
+.t3tk-video-actions {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  z-index: 2;
+  display: flex; gap: 4px;
+  -webkit-app-region: no-drag;
+}
+.t3tk-video-actions .t3tk-media-btn {
+  height: 28px; background: rgb(0 0 0 / 78%); color: #fff;
+}
+.t3tk-video-actions .t3tk-media-btn:hover:not(:disabled) { background: #292929; }
+[data-t3tk-video-player]:fullscreen { max-width: none; max-height: none; background: #000; }
+[data-t3tk-video-player]:fullscreen > .t3tk-video-actions {
+  inset-block-start: max(8px, calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 0px)));
+}
+[data-t3tk-video-player]:fullscreen > video {
+  display: block; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain;
 }
 /* Electron draws the native window buttons above all web content. Keep both toolbars below them. */
 .t3tk-overlay {
@@ -355,13 +487,14 @@ input.t3tk-gallery-input { width: 200px; }
 export function toast(message, ms = 3200) {
   // One at a time: a newer message replaces the one still showing.
   // Reuse the one showing, so quick repeats (effort shortcuts) update it in place without a blink.
+  const container = document.fullscreenElement ?? document.body;
   let el = document.querySelector(".t3tk-toast");
   if (!el) {
     el = document.createElement("div");
     el.className = "t3tk-toast";
     el.setAttribute("role", "status");
-    document.body.append(el);
   }
+  if (el.parentElement !== container) container.append(el);
   el.textContent = message;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.remove(), ms);

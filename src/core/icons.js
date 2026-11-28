@@ -23,6 +23,7 @@ export const hammerIcon = () => svgIcon([
 export const compactIcon = () => svgIcon(["m7 20 5-5 5 5", "m7 4 5 5 5-5"]);
 export const expandIcon = () => svgIcon(["m7 9 5-5 5 5", "m7 15 5 5 5-5"]);
 export const annotateIcon = () => svgIcon(["M12 20h9", "M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"]);
+export const launcherIcon = () => svgIcon(["M4 6h16", "M4 12h10", "M4 18h7", "m15 13 5 3-5 3Z"]);
 
 export function galleryIcon() {
   const svg = svgIcon([]);
