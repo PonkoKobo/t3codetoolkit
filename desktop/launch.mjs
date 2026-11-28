@@ -12,11 +12,13 @@
 // running (the app allows one copy, so the new one handed over to it and quit).
 
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findApp, installDir, windowsAppId, windowsLauncherName } from "./find-app.mjs";
 import { splashSource } from "./splash.mjs";
+import { readAntigravityQuota } from "./antigravity-quota.mjs";
+import { readConfig, updateConfig } from "./config.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -31,7 +33,7 @@ const configPath = join(here, "config.json");
 const installed = existsSync(configPath);
 let config = {};
 try {
-  if (installed) config = JSON.parse(readFileSync(configPath, "utf8"));
+  if (installed) config = readConfig(configPath) ?? {};
 } catch {}
 
 // An installed copy logs next to itself; a copy run from the source folder uses the default folder.
@@ -59,7 +61,7 @@ if (!appPath) {
   // An AppImage update renames the file; remember where the app is now.
   if (appPath && installed) {
     try {
-      writeFileSync(configPath, `${JSON.stringify({ ...config, app: appPath }, null, 2)}\n`);
+      config = updateConfig(configPath, () => ({ app: appPath }));
     } catch {}
   }
 }
@@ -67,7 +69,12 @@ if (!appPath || !existsSync(appPath)) fail("Couldn't find the T3 Code app. Pass 
 
 const bundlePath = [join(here, "t3tk-core.js"), join(here, "..", "dist", "t3tk-core.js")].find((p) => existsSync(p));
 if (!bundlePath) fail("t3tk-core.js is missing. Run `npm run build`, or reinstall the toolkit.");
-const bundle = readFileSync(bundlePath, "utf8");
+const quotaAvailable = installed && process.platform === "win32";
+const quotaEnabled = quotaAvailable && config.antigravityQuota === true;
+const quotaBootstrap = quotaAvailable
+  ? `window.__T3TK_ANTIGRAVITY_QUOTA_AVAILABLE__ = true; window.__T3TK_ANTIGRAVITY_QUOTA__ = ${quotaEnabled};\n`
+  : "";
+const bundle = quotaBootstrap + readFileSync(bundlePath, "utf8");
 const logoPath = [join(here, "splash.png"), join(here, "..", "assets", "icon.png")].find((path) => existsSync(path));
 const startupScript = logoPath ? splashSource(readFileSync(logoPath, "base64")) : null;
 
@@ -97,15 +104,13 @@ function telemetryState() {
 function setTelemetryOff(off) {
   const state = telemetryState();
   if (state.lockedBy) return state;
-  let saved = {};
-  try {
-    saved = JSON.parse(readFileSync(configPath, "utf8"));
-  } catch {}
-  const updated = { ...saved, telemetryOff: off };
-  writeFileSync(configPath, `${JSON.stringify(updated, null, 2)}\n`);
-  config = updated;
+  config = updateConfig(configPath, () => ({ telemetryOff: off }));
   log("telemetry", { telemetryOff: off });
   return telemetryState();
+}
+
+function quotaState() {
+  return { available: quotaAvailable, enabledNow: quotaEnabled, enabledNextStart: quotaAvailable && config.antigravityQuota === true };
 }
 // We may be running as Node inside T3 Code's own binary; the app itself must start normally.
 delete env.ELECTRON_RUN_AS_NODE;
@@ -113,8 +118,28 @@ delete env.NODE_OPTIONS;
 
 const launchArgs = ["--remote-debugging-pipe"];
 if (flag("--dry-run")) {
-  console.log(JSON.stringify({ appPath, bundlePath, launchArgs, telemetry: env.T3CODE_TELEMETRY_ENABLED ?? "(unchanged)", telemetryState: telemetryState(), logFile }, null, 2));
+  console.log(JSON.stringify({ appPath, bundlePath, launchArgs, telemetry: env.T3CODE_TELEMETRY_ENABLED ?? "(unchanged)", telemetryState: telemetryState(), quotaState: quotaState(), logFile }, null, 2));
   process.exit(0);
+}
+
+const quotaCachePath = join(here, "antigravity-quota-cache.json");
+let quotaSnapshot = null;
+let quotaRequest = null;
+if (quotaEnabled) {
+  try { quotaSnapshot = JSON.parse(readFileSync(quotaCachePath, "utf8")); } catch {}
+}
+
+function saveQuota(snapshot) {
+  quotaSnapshot = snapshot;
+  const staging = `${quotaCachePath}.${process.pid}.tmp`;
+  try {
+    writeFileSync(staging, JSON.stringify(snapshot), { mode: 0o600 });
+    renameSync(staging, quotaCachePath);
+  } catch (error) {
+    log("error", { message: `couldn't save Gemini quota: ${error.message}` });
+    try { rmSync(staging, { force: true }); } catch {}
+  }
+  return snapshot;
 }
 
 // fds 3 and 4 are the DevTools pipe: we write commands to 3 and read replies from 4.
@@ -224,7 +249,7 @@ async function inject(target) {
     const { sessionId } = await send("Target.attachToTarget", { targetId: id, flatten: true });
     if (startupScript) await registerSplash(id, sessionId);
     await send("Page.enable", {}, sessionId);
-    // A private channel for the toolkit menu's telemetry switch (see onLauncherRequest). Bindings
+    // A private channel for the Toolkit menu and Gemini quota (see onLauncherRequest). Bindings
     // survive reloads. Runtime.enable makes sure binding calls are reported back to us.
     await send("Runtime.addBinding", { name: BINDING }, sessionId);
     await send("Runtime.enable", {}, sessionId);
@@ -252,9 +277,26 @@ async function inject(target) {
 }
 
 const BINDING = "__t3tkLauncher";
+const appContexts = new Map();
 
-// The page asks with {id, get: true} or {id, telemetryOff: boolean}; anything else is ignored.
-function onLauncherRequest(sessionId, payload) {
+async function verifyQuotaContext(sessionId, executionContextId, requireActivation) {
+  const context = appContexts.get(sessionId)?.get(executionContextId);
+  if (!context?.isDefault || !context.frameId) return false;
+  const tree = await send("Page.getFrameTree", {}, sessionId, 2000).catch(() => null);
+  const frame = tree?.frameTree?.frame;
+  if (frame?.id !== context.frameId || !APP_URL.test(frame.url)) return false;
+  if (!requireActivation) return true;
+  const world = await send("Page.createIsolatedWorld", { frameId: frame.id, worldName: "t3tk-quota-activation" }, sessionId, 2000).catch(() => null);
+  if (!Number.isInteger(world?.executionContextId)) return false;
+  const active = await send("Runtime.evaluate", {
+    contextId: world.executionContextId,
+    expression: "navigator.userActivation.isActive",
+    returnByValue: true,
+  }, sessionId, 2000).catch(() => null);
+  return active?.result?.value === true;
+}
+
+async function onLauncherRequest(sessionId, { payload, executionContextId }) {
   let request;
   try {
     request = JSON.parse(payload);
@@ -262,15 +304,31 @@ function onLauncherRequest(sessionId, payload) {
     return;
   }
   if (!request || !Number.isInteger(request.id)) return;
+  const refreshQuota = request.antigravityQuota === true;
+  const readQuota = refreshQuota || request.antigravityQuota === "cached";
+  const changeQuota = typeof request.geminiQuotaEnabled === "boolean";
+  const quotaCommand = readQuota || changeQuota || request.getGeminiQuota === true;
+  if (quotaCommand && (!quotaAvailable || (readQuota && !quotaEnabled))) return;
+  if (quotaCommand && !await verifyQuotaContext(sessionId, executionContextId, refreshQuota || changeQuota)) return;
+
   let reply;
   try {
-    if (typeof request.telemetryOff === "boolean") reply = { id: request.id, state: setTelemetryOff(request.telemetryOff) };
+    if (readQuota) {
+      if (refreshQuota) quotaRequest ??= readAntigravityQuota().then(saveQuota).finally(() => { quotaRequest = null; });
+      reply = { id: request.id, state: refreshQuota ? await quotaRequest : quotaSnapshot };
+    } else if (quotaCommand) {
+      if (changeQuota) config = updateConfig(configPath, () => ({ antigravityQuota: request.geminiQuotaEnabled }));
+      reply = { id: request.id, state: quotaState() };
+    } else if (typeof request.telemetryOff === "boolean") reply = { id: request.id, state: setTelemetryOff(request.telemetryOff) };
     else if (request.get === true) reply = { id: request.id, state: telemetryState() };
     else return;
   } catch (error) {
-    reply = { id: request.id, error: `Couldn't save the setting: ${error.message}` };
+    reply = { id: request.id, error: readQuota ? error.message : `Couldn't save the setting: ${error.message}` };
   }
-  send("Runtime.evaluate", { expression: `window.__t3tkLauncherReply?.(${JSON.stringify(reply)})` }, sessionId).catch(() => {});
+  send("Runtime.evaluate", {
+    ...(quotaCommand ? { contextId: executionContextId } : {}),
+    expression: `window.__t3tkLauncherReply?.(${JSON.stringify(reply)})`,
+  }, sessionId).catch(() => {});
 }
 
 function onMessage(message) {
@@ -282,8 +340,27 @@ function onMessage(message) {
     else resolve(message.result);
     return;
   }
+  if (quotaAvailable && message.method === "Runtime.executionContextCreated" && message.sessionId) {
+    const { id, auxData } = message.params.context;
+    if (!auxData?.isDefault) return;
+    if (!appContexts.has(message.sessionId)) appContexts.set(message.sessionId, new Map());
+    appContexts.get(message.sessionId).set(id, auxData);
+    return;
+  }
+  if (message.method === "Runtime.executionContextDestroyed") {
+    appContexts.get(message.sessionId)?.delete(message.params.executionContextId);
+    return;
+  }
+  if (message.method === "Runtime.executionContextsCleared") {
+    appContexts.delete(message.sessionId);
+    return;
+  }
+  if (message.method === "Target.detachedFromTarget") {
+    appContexts.delete(message.params.sessionId);
+    return;
+  }
   if (message.method === "Runtime.bindingCalled" && message.params?.name === BINDING && message.sessionId) {
-    onLauncherRequest(message.sessionId, message.params.payload);
+    void onLauncherRequest(message.sessionId, message.params);
     return;
   }
   if (message.method === "Target.attachedToTarget" && !message.sessionId && startupScript) {

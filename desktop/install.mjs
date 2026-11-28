@@ -16,6 +16,7 @@ import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findApp, installDir, windowsAppId, windowsLauncherName } from "./find-app.mjs";
+import { readConfig, updateConfig } from "./config.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
@@ -41,16 +42,16 @@ function defaultShortcutDir() {
   return join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), "applications");
 }
 
-const readConfig = () => {
-  try {
-    return JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
-  } catch {
-    return null;
-  }
-};
+const configPath = join(dir, "config.json");
+let previous;
+try {
+  previous = readConfig(configPath);
+} catch {
+  die(`Could not read ${configPath} as a JSON object. Repair it before continuing.`);
+}
 
 if (flag("--uninstall")) {
-  const config = readConfig();
+  const config = previous;
   if (!config) die(`No toolkit install found in ${dir}.`);
   for (const shortcut of config.shortcuts ?? []) {
     rmSync(shortcut, { recursive: true, force: true });
@@ -64,7 +65,6 @@ if (flag("--uninstall")) {
 
 // ---- install ----
 
-const previous = readConfig();
 const appPath = option("--app") ?? (process.env.T3TK_APP || undefined) ?? findApp();
 if (!appPath || !existsSync(appPath)) die("Couldn't find T3 Code. Install it first, or pass --app <path to the T3 Code executable>.");
 
@@ -82,6 +82,8 @@ try {
 mkdirSync(dir, { recursive: true });
 const copy = (from, to = from.split(/[\\/]/).pop()) => copyFileSync(from, join(dir, to));
 copy(join(here, "launch.mjs"));
+copy(join(here, "config.mjs"));
+copy(join(here, "antigravity-quota.mjs"));
 copy(join(here, "find-app.mjs"));
 copy(join(here, "splash.mjs"));
 copy(join(here, "install.mjs")); // so `install.mjs --uninstall` works from the install folder too
@@ -108,16 +110,16 @@ if (!flag("--no-shortcuts")) {
   else shortcuts.push(linuxDesktopEntry(target));
 }
 
-const config = {
+const config = updateConfig(configPath, (saved) => ({
   version,
   app: appPath,
   // Older installs wrote keepTelemetry=false by default, so it cannot record an explicit opt-out.
-  telemetryOff: !flag("--keep-telemetry") && previous?.telemetryOff === true,
+  telemetryOff: !flag("--keep-telemetry") && saved.telemetryOff === true,
+  antigravityQuota: saved.antigravityQuota === true,
   // Keep entries from an earlier install that this run didn't recreate, so uninstall finds them.
-  shortcuts: [...new Set([...(previous?.shortcuts ?? []).filter((s) => existsSync(s)), ...shortcuts])],
+  shortcuts: [...new Set([...(Array.isArray(saved.shortcuts) ? saved.shortcuts : []).filter((s) => existsSync(s)), ...shortcuts])],
   installedAt: new Date().toISOString(),
-};
-writeFileSync(join(dir, "config.json"), `${JSON.stringify(config, null, 2)}\n`);
+}));
 
 say(`T3CodeToolkit ${version} is installed in ${dir}`);
 say(`T3 Code: ${appPath}`);

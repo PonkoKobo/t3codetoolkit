@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
+import { geminiQuotaWindows, parseQuotaReport } from "../desktop/antigravity-quota.mjs";
 
 const root = join(import.meta.dirname, "..");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -45,16 +46,29 @@ test("launcher dry run resolves the app and inherits telemetry by default", () =
   assert.equal(kept.telemetry, "(unchanged)");
   // Run from the source folder, the menu switch can't save anything, so it shows as locked.
   assert.deepEqual(out.telemetryState, { offNow: false, offNextStart: false, lockedBy: "not-installed" });
+  assert.deepEqual(out.quotaState, { available: false, enabledNow: false, enabledNextStart: false });
   assert.equal(kept.telemetryState.lockedBy, "flag");
   const userOff = JSON.parse(execFileSync(process.execPath, [join(root, "desktop/launch.mjs"), "--app", fakeApp, "--dry-run", "--keep-telemetry"], { env: { ...env, T3CODE_TELEMETRY_ENABLED: "off" }, encoding: "utf8" }));
   assert.deepEqual(userOff.telemetryState, { offNow: true, offNextStart: true, lockedBy: "user-setting" });
+});
+
+test("Gemini quota reads the weekly and five-hour windows", () => {
+  const rows = parseQuotaReport([
+    "Other Models\tWeekly Limit Remaining\t20%",
+    "Gemini Models\tFive-Hour Limit Remaining\t30%",
+    "Gemini Models\tWeekly Limit Remaining\t50%\t2026-11-30T14:00:00Z",
+  ].join("\n"));
+  assert.deepEqual(geminiQuotaWindows(rows), [
+    { label: "Weekly", remaining: 50, resetAt: "2026-11-30T14:00:00.000Z" },
+    { label: "5-hour", remaining: 30, resetAt: null },
+  ]);
 });
 
 test("install, run the installed launcher, uninstall", () => {
   run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--shortcuts", shortcuts]);
 
   const starter = process.platform === "win32" ? "start.ps1" : "start.sh";
-  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
+  for (const file of ["launch.mjs", "find-app.mjs", "install.mjs", "antigravity-quota.mjs", "config.mjs", "splash.mjs", "splash.png", "t3tk-core.js", "config.json", "runtime.txt", starter]) {
     assert.ok(existsSync(join(dir, file)), `${file} installed`);
   }
   if (process.platform !== "win32") assert.ok(statSync(join(dir, "start.sh")).mode & 0o100, "start.sh is executable");
@@ -72,6 +86,7 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(config.version, version);
   assert.equal(config.app, fakeApp);
   assert.equal(config.telemetryOff, false);
+  assert.equal(config.antigravityQuota, false);
   assert.equal(config.shortcuts.length, 1);
   const [entry] = config.shortcuts;
   assert.ok(entry.startsWith(shortcuts), "entry created in the requested folder");
@@ -108,11 +123,14 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(out.bundlePath, join(dir, "t3tk-core.js"));
   assert.equal(out.telemetry, "(unchanged)");
   assert.deepEqual(out.telemetryState, { offNow: false, offNextStart: false, lockedBy: null });
+  const quotaAvailable = process.platform === "win32";
+  assert.deepEqual(out.quotaState, { available: quotaAvailable, enabledNow: false, enabledNextStart: false });
 
   // Older installs wrote keepTelemetry=false by default. That is insufficient to opt out.
   const configPath = join(dir, "config.json");
   const legacyConfig = { ...config, version: "0.2.2", keepTelemetry: false };
   delete legacyConfig.telemetryOff;
+  delete legacyConfig.antigravityQuota;
   writeFileSync(configPath, JSON.stringify(legacyConfig));
   assert.equal(dryRun().telemetry, "(unchanged)");
   const reinstall = (...args) => run("desktop/install.mjs", ["--app", fakeApp, "--dir", dir, "--no-shortcuts", ...args]);
@@ -121,19 +139,40 @@ test("install, run the installed launcher, uninstall", () => {
   assert.equal(upgraded.version, version);
   assert.equal(upgraded.telemetryOff, false);
   assert.deepEqual(upgraded.shortcuts, [entry]);
+  assert.equal(upgraded.antigravityQuota, false);
 
   // A choice made with the new switch persists across updates.
-  writeFileSync(configPath, JSON.stringify({ ...upgraded, telemetryOff: true }));
+  const quickLaunchers = [{ id: "tools", label: "Tools" }];
+  const cachePath = join(dir, "antigravity-quota-cache.json");
+  const savedQuota = JSON.stringify({ checkedAt: "2026-11-28T14:00:00Z", rows: [{ label: "Weekly", remaining: 50 }] });
+  writeFileSync(cachePath, savedQuota);
+  writeFileSync(configPath, JSON.stringify({ ...upgraded, telemetryOff: true, antigravityQuota: true, quickLaunchers }));
   reinstall();
+  const preserved = JSON.parse(readFileSync(configPath, "utf8"));
+  assert.equal(preserved.antigravityQuota, true);
+  assert.deepEqual(preserved.quickLaunchers, quickLaunchers);
+  assert.equal(readFileSync(cachePath, "utf8"), savedQuota);
   const optedOut = dryRun();
   assert.equal(optedOut.telemetry, "false");
   assert.deepEqual(optedOut.telemetryState, { offNow: true, offNextStart: true, lockedBy: null });
+  assert.deepEqual(optedOut.quotaState, { available: quotaAvailable, enabledNow: quotaAvailable, enabledNextStart: quotaAvailable });
   const kept = dryRun("--keep-telemetry");
   assert.equal(kept.telemetry, "(unchanged)");
   assert.deepEqual(kept.telemetryState, { offNow: false, offNextStart: false, lockedBy: "flag" });
 
   reinstall("--keep-telemetry");
   assert.equal(dryRun().telemetry, "(unchanged)");
+  const disabledQuotaConfig = { ...JSON.parse(readFileSync(configPath, "utf8")), antigravityQuota: false };
+  writeFileSync(configPath, JSON.stringify(disabledQuotaConfig));
+  reinstall();
+  assert.deepEqual(dryRun().quotaState, out.quotaState);
+
+  const validConfig = readFileSync(configPath, "utf8");
+  const malformedConfig = "{ antigravityQuota:";
+  writeFileSync(configPath, malformedConfig);
+  assert.throws(() => reinstall(), /Could not read .* as a JSON object/);
+  assert.equal(readFileSync(configPath, "utf8"), malformedConfig);
+  writeFileSync(configPath, validConfig);
 
   run("desktop/install.mjs", ["--uninstall", "--dir", dir]);
   assert.equal(existsSync(dir), false, "install folder removed");

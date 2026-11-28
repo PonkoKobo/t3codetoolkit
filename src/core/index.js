@@ -9,6 +9,8 @@ import { projectColors } from "./features/projectColors.js";
 import { threadRepositoryOverflow } from "./features/threadRepositoryOverflow.js";
 import { projectThreadMenu } from "./features/projectThreadMenu.js";
 import { sidebarProjectOrder } from "./features/sidebarProjectOrder.js";
+import { antigravityUsage, appendQuotaSetting } from "./features/antigravityUsage.js";
+import { quotaCSS } from "./features/antigravityQuota.js";
 import { closeAllAnnotators } from "./annotate/editor.js";
 import { CSS, toast } from "./styles.js";
 import { hammerIcon } from "./icons.js";
@@ -19,6 +21,7 @@ const VERSION = __T3TK_VERSION__;
 const BUILD = __T3TK_BUILD__;
 const LABEL = BUILD ? `${VERSION}+dev` : VERSION;
 const FEATURES = [compactButton, imageAnnotate, effortShortcuts, modelSwitcher, projectSwitcher, sidebarProjectOrder, arrangeFavorites, imageGallery, projectColors, projectThreadMenu];
+const desktopQuota = __T3TK_EXTENSION__ ? null : { feature: antigravityUsage, css: quotaCSS, appendSetting: appendQuotaSetting };
 const CHECKED_DESKTOP_VERSIONS = ["0.1.12", "0.1.13"];
 const VERSION_FIXES = [threadRepositoryOverflow];
 const DISABLED_KEY = "t3tk.disabled-features";
@@ -88,6 +91,8 @@ function boot(surface, hostVersion, paused = false) {
   // __T3TK_DISABLED__ (set by whoever loads the bundle) can't be switched back on from the menu.
   const forced = new Set(window.__T3TK_DISABLED__ ?? []);
   const available = FEATURES.filter((f) => f.surfaces.includes(surface));
+  const showQuota = !__T3TK_EXTENSION__ && surface === "desktop" && window.__T3TK_ANTIGRAVITY_QUOTA__ === true;
+  if (showQuota) available.push(desktopQuota.feature);
   for (const fix of VERSION_FIXES) {
     if (surface === "desktop" && fix.hostVersions.includes(hostVersion)) available.push(fix);
   }
@@ -98,7 +103,7 @@ function boot(surface, hostVersion, paused = false) {
 
   const style = document.createElement("style");
   style.dataset.t3tk = LABEL;
-  style.textContent = CSS;
+  style.textContent = showQuota ? CSS + desktopQuota.css : CSS;
   document.head.append(style);
 
   let timer = 0;
@@ -174,6 +179,9 @@ function boot(surface, hostVersion, paused = false) {
         state.textContent = error.message;
       });
     });
+    if (!__T3TK_EXTENSION__ && surface === "desktop" && window.__T3TK_ANTIGRAVITY_QUOTA_AVAILABLE__ === true) {
+      desktopQuota.appendSetting(section, paused);
+    }
     return section;
   }
 

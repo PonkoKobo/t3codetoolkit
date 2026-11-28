@@ -104,6 +104,8 @@ const desktop = [
   "assets/screenshots/toolkit-menu.png",
   "scripts/telemetry.cmd",
   "scripts/telemetry.sh",
+  "desktop/antigravity-quota.mjs",
+  "desktop/config.mjs",
   "desktop/find-app.mjs",
   "desktop/install.mjs",
   "desktop/launch.mjs",

@@ -132,6 +132,10 @@ It adds features to the T3 Code web app (Chrome and Firefox extension) and the d
   sections across two columns. Narrow windows use a single column.
   Feature switches apply at once and are saved in the current browser or desktop profile. The **Privacy**
   section has an optional desktop telemetry switch that applies the next time T3 Code starts. See [Telemetry](#telemetry).
+- **Gemini quota (Windows desktop, off by default).** Turn on **Toolkit → Privacy → Show Gemini quota**
+  and reopen **T3 Code + Toolkit**. The pill beside **Toolkit** and the **Thread Details** panel for
+  Antigravity Gemini threads share the last saved weekly and 5-hour limits. **Refresh** in either view
+  checks your signed-in Antigravity CLI (`agy.exe`). Toolkit updates keep your choice.
 - **Thread Details repository expansion (desktop 0.1.12 and 0.1.13).** **Show more** keeps the extra
   repositories in the scrollable card. The fix is on by default for these versions
   and has its own switch in the Toolkit menu. [T3 Code issue #42907](https://github.com/pingdotgg/t3code/issues/42907)

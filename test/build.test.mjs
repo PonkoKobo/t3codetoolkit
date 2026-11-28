@@ -22,6 +22,8 @@ test("both bundles are classic scripts and the host menu loader ships only on de
   const dynamicImport = /\bimport\s*\(/;
   assert.ok(dynamicImport.test(desktop), "desktop retains the host menu loader");
   assert.ok(!dynamicImport.test(extension), "the browser extension contains no dynamic imports");
+  assert.match(desktop, /Show Gemini quota/);
+  assert.doesNotMatch(extension, /Gemini quota|__T3TK_ANTIGRAVITY_QUOTA__/);
 });
 
 test("the bundle stays inert outside T3 Code", () => {
@@ -60,6 +62,18 @@ function bootBundle(window = {}, savedFeatures = [], sessionChoice = "paused") {
 
 test("the toolkit reports the package version when it boots", () => {
   assert.equal(bootBundle().__t3tk.version, version);
+});
+
+test("Gemini quota is available only when the desktop launcher opts in", async () => {
+  const desktopBridge = { getUpdateState: () => ({ currentVersion: "0.1.13" }) };
+  const off = bootBundle({ desktopBridge, __T3TK_ANTIGRAVITY_QUOTA_AVAILABLE__: true });
+  const on = bootBundle({ desktopBridge, __T3TK_ANTIGRAVITY_QUOTA__: true });
+  const web = bootBundle({ __T3TK_ANTIGRAVITY_QUOTA__: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(on.__t3tk.enabled().includes("gemini-quota"));
+  for (const host of [off, web]) {
+    assert.ok(!host.__t3tk.features.some((feature) => feature.id === "gemini-quota"));
+  }
 });
 
 test("repository expansion fix uses only the desktop app's exact version", async () => {
@@ -153,6 +167,7 @@ test("release zips are valid and complete and match their published checksums", 
   for (const name of [
     "install.cmd", "install.sh", "install.command", "dist/t3tk-core.js",
     "desktop/windows-launcher.cs", "desktop/windows-shell.ps1", "assets/icon.png", "assets/icon.ico",
+    "desktop/config.mjs", "desktop/antigravity-quota.mjs",
   ]) {
     assert.ok(desktop.has(top + name), `${name} in the desktop zip`);
   }
